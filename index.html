@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Capture — Multi-Stream Recorder</title>
+  <link rel="stylesheet" href="styles/main.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="toolbar" id="toolbar"></header>
+    <div class="gutter gutter-row" data-resize="top" title="Drag to resize · double-click to reset"></div>
+    <div class="main">
+      <aside class="panel left" id="inspector"></aside>
+      <div class="gutter gutter-col" data-resize="left" title="Drag to resize · double-click to reset"></div>
+      <section class="stage" id="stage"></section>
+      <div class="gutter gutter-col" data-resize="right" title="Drag to resize · double-click to reset"></div>
+      <aside class="panel right" id="export"></aside>
+    </div>
+    <div class="gutter gutter-row" data-resize="bottom" title="Drag to resize · double-click to reset"></div>
+    <footer class="audiobar-wrap">
+      <div class="audiobar" id="audiobar"></div>
+    </footer>
+  </div>
+  <div class="toast" id="toast" hidden></div>
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,262 @@
+// Left panel: detailed config + live stats for the selected track.
+
+import { state, update, findSource } from '../state.js';
+import { el, clear, select } from '../util/dom.js';
+import { formatDuration, formatBytes, formatRes } from '../util/format.js';
+import { elapsedMs } from '../recorder.js';
+import { readLevel } from '../audioMeter.js';
+import {
+  setVideoDevice,
+  setAudioDevice,
+  applyVideoConstraints,
+  applyAudioConstraints,
+  removeSource,
+} from '../sources.js';
+
+const RES_PRESETS = [
+  { value: '', label: 'Auto' },
+  { value: '3840x2160', label: '2160p (4K)' },
+  { value: '2560x1440', label: '1440p' },
+  { value: '1920x1080', label: '1080p' },
+  { value: '1280x720', label: '720p' },
+  { value: '854x480', label: '480p' },
+];
+const FPS_PRESETS = [
+  { value: '', label: 'Auto' },
+  { value: '60', label: '60 fps' },
+  { value: '30', label: '30 fps' },
+  { value: '24', label: '24 fps' },
+];
+const VBITRATE = [
+  { value: '0', label: 'Auto' },
+  { value: '12000000', label: '12 Mbps' },
+  { value: '8000000', label: '8 Mbps' },
+  { value: '5000000', label: '5 Mbps' },
+  { value: '2500000', label: '2.5 Mbps' },
+  { value: '1000000', label: '1 Mbps' },
+];
+const ABITRATE = [
+  { value: '0', label: 'Auto' },
+  { value: '320000', label: '320 kbps' },
+  { value: '192000', label: '192 kbps' },
+  { value: '128000', label: '128 kbps' },
+  { value: '96000', label: '96 kbps' },
+];
+
+export function createInspector(root) {
+  let liveRefs = {}; // { source, resStat, timeStat, sizeStat, statusStat, levelFill }
+
+  function field(label, control) {
+    return el('div', { class: 'field' }, [el('label', { text: label }), control]);
+  }
+
+  function statRow(label, value, ref) {
+    const v = el('span', { class: 'stat-value', text: value });
+    if (ref) liveRefs[ref] = v;
+    return el('div', { class: 'stat-row' }, [el('span', { class: 'stat-key', text: label }), v]);
+  }
+
+  function busy(source) {
+    return source.rec.status === 'recording' || source.rec.status === 'paused';
+  }
+
+  function render(s) {
+    liveRefs = {};
+    clear(root);
+
+    const source = findSource(s.selectedId);
+    root.appendChild(el('h2', { class: 'panel-title', text: 'Inspector' }));
+
+    if (!source) {
+      root.appendChild(
+        el('p', { class: 'muted hint' }, 'Click a video or audio track to inspect and configure it.')
+      );
+      return;
+    }
+
+    const locked = busy(source);
+
+    // Name
+    const nameInput = el('input', {
+      type: 'text', class: 'text-input', value: source.label,
+      onChange: (e) => update(() => { source.label = e.target.value || source.label; }),
+    });
+    root.appendChild(field('Name', nameInput));
+
+    root.appendChild(
+      el('div', { class: 'kind-chip' }, `${source.mediaKind} · ${source.kind}`)
+    );
+
+    if (source.mediaKind === 'video') renderVideo(source, locked);
+    else renderAudio(source, locked);
+
+    // Live stats
+    const stats = el('div', { class: 'stats' });
+    if (source.mediaKind === 'video') {
+      const st = source.settings || {};
+      stats.appendChild(
+        statRow('Resolution', st.width ? formatRes(st.width, st.height) : '—', 'resStat')
+      );
+      stats.appendChild(
+        statRow('Frame rate', st.frameRate ? `${Math.round(st.frameRate)} fps` : '—')
+      );
+    } else {
+      stats.appendChild(statRow('Sample rate', source.settings.sampleRate ? `${source.settings.sampleRate} Hz` : '—'));
+      const levelFill = el('div', { class: 'meter-fill' });
+      liveRefs.levelFill = levelFill;
+      stats.appendChild(
+        el('div', { class: 'stat-row' }, [
+          el('span', { class: 'stat-key', text: 'Level' }),
+          el('div', { class: 'meter meter-sm' }, [levelFill]),
+        ])
+      );
+    }
+    stats.appendChild(statRow('Status', source.streamEnded ? 'ended' : source.rec.status, 'statusStat'));
+    stats.appendChild(statRow('Elapsed', formatDuration(elapsedMs(source)), 'timeStat'));
+    stats.appendChild(
+      statRow('Recorded', source.rec.blob ? formatBytes(source.rec.size) : '—', 'sizeStat')
+    );
+    stats.appendChild(statRow('Codec', source.rec.mimeType || '—'));
+    root.appendChild(el('h3', { class: 'sub-title', text: 'Live stats' }));
+    root.appendChild(stats);
+
+    root.appendChild(
+      el('button', {
+        class: 'btn danger block', text: 'Remove this track',
+        onClick: () => removeSource(source.id),
+      })
+    );
+
+    liveRefs.source = source;
+  }
+
+  function renderVideo(source, locked) {
+    // Device (cameras only)
+    if (source.kind === 'camera') {
+      const cams = state.devices.cameras;
+      const opts = cams.length
+        ? cams.map((d, i) => ({ value: d.deviceId, label: d.label || `Camera ${i + 1}` }))
+        : [{ value: source.deviceId || '', label: source.label }];
+      const sel = select(
+        {
+          class: 'select', disabled: locked,
+          onChange: (e) => setVideoDevice(source, e.target.value).catch(() => {}),
+        },
+        opts,
+        source.deviceId
+      );
+      root.appendChild(field('Camera device', sel));
+    }
+
+    // Pre-select from the user's chosen target, not the negotiated settings.
+    const resVal = source.targetW && source.targetH ? `${source.targetW}x${source.targetH}` : '';
+    const resSel = select(
+      {
+        class: 'select', disabled: locked,
+        onChange: (e) => {
+          const [w, h] = e.target.value.split('x').map(Number);
+          source.targetW = w || 0;
+          source.targetH = h || 0;
+          applyVideoConstraints(source, { width: w, height: h });
+        },
+      },
+      RES_PRESETS,
+      RES_PRESETS.find((p) => p.value === resVal) ? resVal : ''
+    );
+    root.appendChild(field('Target resolution', resSel));
+
+    const fpsSel = select(
+      {
+        class: 'select', disabled: locked,
+        onChange: (e) => {
+          source.targetFps = Number(e.target.value) || 0;
+          applyVideoConstraints(source, { frameRate: source.targetFps });
+        },
+      },
+      FPS_PRESETS,
+      String(source.targetFps || '')
+    );
+    root.appendChild(field('Frame rate', fpsSel));
+
+    const brSel = select(
+      {
+        class: 'select', disabled: locked,
+        onChange: (e) => update(() => { source.bitrate = Number(e.target.value); }),
+      },
+      VBITRATE,
+      String(source.bitrate || 0)
+    );
+    root.appendChild(field('Recording bitrate', brSel));
+
+    const mirror = el('input', {
+      type: 'checkbox', checked: !!source.mirror,
+      onChange: (e) => update(() => { source.mirror = e.target.checked; }),
+    });
+    root.appendChild(
+      el('label', { class: 'check-row' }, [mirror, el('span', { text: 'Mirror preview' })])
+    );
+  }
+
+  function renderAudio(source, locked) {
+    if (source.kind === 'mic') {
+      const mics = state.devices.mics;
+      const opts = mics.length
+        ? mics.map((d, i) => ({ value: d.deviceId, label: d.label || `Microphone ${i + 1}` }))
+        : [{ value: source.deviceId || '', label: source.label }];
+      const sel = select(
+        {
+          class: 'select', disabled: locked,
+          onChange: (e) => setAudioDevice(source, e.target.value).catch(() => {}),
+        },
+        opts,
+        source.deviceId
+      );
+      root.appendChild(field('Microphone device', sel));
+    }
+
+    const st = source.settings || {};
+    const toggles = [
+      ['echoCancellation', 'Echo cancellation'],
+      ['noiseSuppression', 'Noise suppression'],
+      ['autoGainControl', 'Auto gain control'],
+    ];
+    for (const [key, label] of toggles) {
+      const cb = el('input', {
+        type: 'checkbox', checked: !!st[key], disabled: locked,
+        onChange: (e) => applyAudioConstraints(source, { [key]: e.target.checked }),
+      });
+      root.appendChild(el('label', { class: 'check-row' }, [cb, el('span', { text: label })]));
+    }
+
+    const brSel = select(
+      {
+        class: 'select', disabled: locked,
+        onChange: (e) => update(() => { source.bitrate = Number(e.target.value); }),
+      },
+      ABITRATE,
+      String(source.bitrate || 0)
+    );
+    root.appendChild(field('Recording bitrate', brSel));
+  }
+
+  // Live numeric/meter updates without rebuilding the form.
+  function tick() {
+    const s = liveRefs.source;
+    if (!s) return;
+    if (liveRefs.timeStat) liveRefs.timeStat.textContent = formatDuration(elapsedMs(s));
+    if (liveRefs.statusStat) liveRefs.statusStat.textContent = s.streamEnded ? 'ended' : s.rec.status;
+    if (liveRefs.sizeStat && s.rec.blob) liveRefs.sizeStat.textContent = formatBytes(s.rec.size);
+    if (liveRefs.resStat && s.settings && s.settings.width) {
+      liveRefs.resStat.textContent = formatRes(s.settings.width, s.settings.height);
+    }
+  }
+
+  function meter() {
+    const s = liveRefs.source;
+    if (s && s.mediaKind === 'audio' && liveRefs.levelFill) {
+      liveRefs.levelFill.style.width = `${Math.round(readLevel(s) * 100)}%`;
+    }
+  }
+
+  return { render, tick, meter };
+}
