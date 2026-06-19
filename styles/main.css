@@ -416,6 +416,12 @@ html, body {
 }
 .input-num:focus { outline: none; border-color: var(--hi); box-shadow: 0 0 0 3px var(--hi-ring); }
 
+/* Time-lapse controls */
+.tl-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.tl-row .input-num { width: 64px; }
+.tl-row .sel-inline { width: auto; flex: 0 0 auto; padding: 7px 8px; }
+.tl-arrow { color: var(--muted); font-weight: 700; }
+
 /* Crash-recovery banner */
 .recovery { margin-bottom: 16px; padding: 12px; border-radius: var(--radius-sm); border: 1px solid #5a4a24; background: #1f1a10; }
 .recovery-head { display: flex; align-items: center; gap: 8px; color: var(--warn); font-size: 13px; margin-bottom: 4px; }

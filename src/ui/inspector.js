@@ -5,6 +5,7 @@ import { el, clear, select, fa } from '../util/dom.js';
 import { formatDuration, formatBytes, formatRes } from '../util/format.js';
 import { elapsedMs } from '../recorder.js';
 import { readLevel } from '../audioMeter.js';
+import { timelapseSpeed } from '../export/exporters.js';
 import {
   setVideoDevice,
   setAudioDevice,
@@ -33,17 +34,26 @@ const RES_PRESETS = [
 ];
 const FPS_PRESETS = [
   { value: '', label: 'Auto' },
+  { value: '240', label: '240 fps' },
+  { value: '120', label: '120 fps' },
   { value: '60', label: '60 fps' },
   { value: '30', label: '30 fps' },
   { value: '24', label: '24 fps' },
 ];
 const VBITRATE = [
   { value: '0', label: 'Auto' },
+  { value: '40000000', label: '40 Mbps' },
+  { value: '20000000', label: '20 Mbps' },
   { value: '12000000', label: '12 Mbps' },
   { value: '8000000', label: '8 Mbps' },
   { value: '5000000', label: '5 Mbps' },
   { value: '2500000', label: '2.5 Mbps' },
   { value: '1000000', label: '1 Mbps' },
+];
+const TL_UNITS = [
+  { value: 'hour', label: 'hours' },
+  { value: 'min', label: 'minutes' },
+  { value: 'sec', label: 'seconds' },
 ];
 const ABITRATE = [
   { value: '0', label: 'Auto' },
@@ -204,6 +214,14 @@ export function createInspector(root) {
     );
     root.appendChild(field('Frame rate', fpsSel));
 
+    if (source.targetFps >= 120) {
+      const tall = (source.settings.height || 0) > 1080 || (source.targetH || 0) > 1080;
+      root.appendChild(
+        el('p', { class: 'muted tiny' },
+          `High frame rates (up to 240 fps) need a resolution of 1080p or lower${tall ? ' — lower the resolution.' : ' and a capable device.'}`)
+      );
+    }
+
     const brSel = select(
       {
         class: 'select', disabled: locked,
@@ -221,6 +239,70 @@ export function createInspector(root) {
     root.appendChild(
       el('label', { class: 'check-row' }, [mirror, el('span', { text: 'Mirror preview' })])
     );
+
+    renderTimelapse(source);
+  }
+
+  function renderTimelapse(source) {
+    const tl = source.timelapse;
+    root.appendChild(el('h3', { class: 'sub-title', text: 'Time-lapse' }));
+
+    const modeSel = select(
+      {
+        class: 'select',
+        onChange: (e) => update(() => { source.timelapse.mode = e.target.value; }),
+      },
+      [
+        { value: 'off', label: 'Off' },
+        { value: 'static', label: 'Static (constant speed)' },
+        { value: 'dynamic', label: 'Fit to length' },
+      ],
+      tl.mode
+    );
+    root.appendChild(field('Mode', modeSel));
+
+    const numInput = (val, onCommit) =>
+      el('input', {
+        type: 'number', class: 'input-num', min: '0', step: 'any', value: String(val),
+        onChange: (e) => update(() => onCommit(parseFloat(e.target.value) || 0)),
+      });
+    const unitSel = (val, onCommit) =>
+      select({ class: 'select sel-inline', onChange: (e) => update(() => onCommit(e.target.value)) }, TL_UNITS, val);
+
+    if (tl.mode === 'static') {
+      root.appendChild(
+        el('div', { class: 'field' }, [
+          el('label', { text: 'Compress' }),
+          el('div', { class: 'tl-row' }, [
+            numInput(tl.fromVal, (v) => { source.timelapse.fromVal = v; }),
+            unitSel(tl.fromUnit, (v) => { source.timelapse.fromUnit = v; }),
+            el('span', { class: 'tl-arrow', text: '→' }),
+            numInput(tl.toVal, (v) => { source.timelapse.toVal = v; }),
+            unitSel(tl.toUnit, (v) => { source.timelapse.toUnit = v; }),
+          ]),
+        ])
+      );
+    } else if (tl.mode === 'dynamic') {
+      root.appendChild(
+        el('div', { class: 'field' }, [
+          el('label', { text: 'Target length' }),
+          el('div', { class: 'tl-row' }, [
+            numInput(tl.targetVal, (v) => { source.timelapse.targetVal = v; }),
+            unitSel(tl.targetUnit, (v) => { source.timelapse.targetUnit = v; }),
+          ]),
+        ])
+      );
+    }
+
+    if (tl.mode !== 'off') {
+      const speed = timelapseSpeed(source, elapsedMs(source));
+      const speedTxt = speed > 1 ? `≈ ${speed >= 10 ? Math.round(speed) : speed.toFixed(1)}× faster` : speed < 1 ? `≈ ${(1 / speed).toFixed(1)}× slower` : '—';
+      const note =
+        tl.mode === 'dynamic' && source.rec.status !== 'stopped'
+          ? 'Speed is computed from the final recorded length at export.'
+          : `${speedTxt} · audio sped to match · re-encoded on export (slower).`;
+      root.appendChild(el('p', { class: 'muted tiny', text: note }));
+    }
   }
 
   function renderAudio(source, locked) {

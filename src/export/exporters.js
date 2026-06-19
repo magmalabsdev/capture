@@ -185,7 +185,14 @@ export async function exportAll() {
           const mp3 = await audioToMp3(res.blob, res.ext, (p) => setFF({ progress: p }));
           files.push({ name: nameFor(src.label, 'mp3'), blob: mp3 });
         } else {
-          files.push({ name: nameFor(src.label, res.ext), blob: res.blob });
+          const speed = timelapseSpeed(src);
+          if (speed !== 1) {
+            setFF({ progress: 0, message: `Time-lapsing ${src.label}…` });
+            const out = await muxVideoWithAudios(res, [], { speed }, (p) => setFF({ progress: p }));
+            files.push({ name: nameFor(src.label, out.ext), blob: out.blob });
+          } else {
+            files.push({ name: nameFor(src.label, res.ext), blob: res.blob });
+          }
         }
       } catch (e) {
         failed.push(src.label);
@@ -219,9 +226,27 @@ function finishNotice(base, failed, partialAny) {
 /* Muxing one video with N audio tracks (resolved {blob, ext} inputs) */
 /* ------------------------------------------------------------------ */
 
-async function muxVideoWithAudios(videoRes, audioResList, onProgress) {
+// Chain atempo filters (each kept within 0.5–2.0) to reach an arbitrary factor.
+function atempoChain(speed) {
+  let s = speed;
+  const parts = [];
+  while (s > 2) { parts.push('atempo=2.0'); s /= 2; }
+  while (s < 0.5) { parts.push('atempo=0.5'); s /= 0.5; }
+  parts.push(`atempo=${s.toFixed(6)}`);
+  return parts.join(',');
+}
+
+/**
+ * Mux a video with 0..N audio tracks. When opts.speed != 1 the clip is
+ * time-lapsed: video timestamps are scaled (setpts) and audio is sped to match
+ * (atempo) — this requires a re-encode, so output is MP4 (H.264/AAC).
+ */
+async function muxVideoWithAudios(videoRes, audioResList, opts = {}, onProgress) {
   const ff = await getFFmpeg(onProgress);
-  const outExt = videoRes.ext === 'mp4' ? 'mp4' : 'webm';
+  const speed = opts.speed && opts.speed > 0 ? opts.speed : 1;
+  const timelapse = speed !== 1;
+
+  const outExt = timelapse ? 'mp4' : videoRes.ext === 'mp4' ? 'mp4' : 'webm';
   const audioCodec = outExt === 'mp4' ? 'aac' : 'libopus';
   const outMime = outExt === 'mp4' ? 'video/mp4' : 'video/webm';
 
@@ -240,22 +265,36 @@ async function muxVideoWithAudios(videoRes, audioResList, onProgress) {
   const args = ['-y', '-i', vName];
   for (const n of aNames) args.push('-i', n);
 
-  if (aNames.length === 0) {
-    args.push('-c', 'copy', out);
-  } else if (aNames.length === 1) {
-    args.push('-map', '0:v:0', '-map', '1:a:0', '-c:v', 'copy', '-c:a', audioCodec, out);
-  } else {
+  // Build the filter graph + maps.
+  const fc = [];
+  if (timelapse) fc.push(`[0:v]setpts=PTS/${speed}[v]`);
+
+  let amap = null;
+  if (aNames.length === 1) {
+    if (timelapse) {
+      fc.push(`[1:a]${atempoChain(speed)}[a]`);
+      amap = '[a]';
+    } else {
+      amap = '1:a:0';
+    }
+  } else if (aNames.length > 1) {
     const inputs = aNames.map((_, i) => `[${i + 1}:a]`).join('');
-    args.push(
-      '-filter_complex',
-      `${inputs}amix=inputs=${aNames.length}:normalize=0[aout]`,
-      '-map', '0:v:0',
-      '-map', '[aout]',
-      '-c:v', 'copy',
-      '-c:a', audioCodec,
-      out
-    );
+    fc.push(`${inputs}amix=inputs=${aNames.length}:normalize=0[am]`);
+    if (timelapse) {
+      fc.push(`[am]${atempoChain(speed)}[a]`);
+      amap = '[a]';
+    } else {
+      amap = '[am]';
+    }
   }
+
+  if (fc.length) args.push('-filter_complex', fc.join(';'));
+  args.push('-map', timelapse ? '[v]' : '0:v:0');
+  if (amap) args.push('-map', amap);
+  if (timelapse) args.push('-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p');
+  else args.push('-c:v', 'copy');
+  if (amap) args.push('-c:a', audioCodec);
+  args.push(out);
 
   let data;
   try {
@@ -271,6 +310,29 @@ async function muxVideoWithAudios(videoRes, audioResList, onProgress) {
     }
   }
   return { blob: new Blob([data], { type: outMime }), ext: outExt };
+}
+
+/* ------------------------------------------------------------------ */
+/* Time-lapse speed factor for a video source                         */
+/* ------------------------------------------------------------------ */
+
+const TL_UNIT = { sec: 1, min: 60, hour: 3600 };
+
+/** Compute the export speed-up factor for a source (1 = none). */
+export function timelapseSpeed(source, durationMsOverride) {
+  const tl = source.timelapse;
+  if (!tl || tl.mode === 'off') return 1;
+  if (tl.mode === 'static') {
+    const from = (tl.fromVal || 0) * TL_UNIT[tl.fromUnit];
+    const to = (tl.toVal || 0) * TL_UNIT[tl.toUnit];
+    return from > 0 && to > 0 && from / to > 0 ? from / to : 1;
+  }
+  if (tl.mode === 'dynamic') {
+    const target = (tl.targetVal || 0) * TL_UNIT[tl.targetUnit];
+    const durSec = ((durationMsOverride ?? source.rec.durationMs) || 0) / 1000;
+    return target > 0 && durSec > 0 && durSec / target > 0 ? durSec / target : 1;
+  }
+  return 1;
 }
 
 /** Transcode an audio blob to MP3 (libmp3lame). */
@@ -317,9 +379,11 @@ export async function singleExport() {
         failed.push(a.label);
       }
     }
-    setFF({ progress: 0, message: 'Muxing video + audio…' });
-    const out = await muxVideoWithAudios(videoRes, audioResList, (p) => setFF({ progress: p }));
-    downloadBlob(out.blob, `${safeName(video.label)}-mixed.${out.ext}`);
+    const speed = timelapseSpeed(video);
+    setFF({ progress: 0, message: speed !== 1 ? 'Time-lapsing + muxing…' : 'Muxing video + audio…' });
+    const out = await muxVideoWithAudios(videoRes, audioResList, { speed }, (p) => setFF({ progress: p }));
+    const suffix = speed !== 1 ? 'timelapse' : 'mixed';
+    downloadBlob(out.blob, `${safeName(video.label)}-${suffix}.${out.ext}`);
     finishNotice('Exported combined file', failed, videoRes.partial);
   } catch (e) {
     setFF({ status: 'error', message: e.message || String(e) });
@@ -366,7 +430,8 @@ export async function mergeExport() {
         }
       }
 
-      const out = await muxVideoWithAudios(videoRes, audioResList, (p) => setFF({ progress: p }));
+      const speed = timelapseSpeed(video);
+      const out = await muxVideoWithAudios(videoRes, audioResList, { speed }, (p) => setFF({ progress: p }));
       const base = safeName(video.label);
       let name = `${base}-merged.${out.ext}`;
       let n = 2;

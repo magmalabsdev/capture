@@ -69,6 +69,14 @@ function registerVideoSource({ stream, kind, label, deviceId }) {
     targetW: 0,
     targetH: 0,
     targetFps: 0,
+    // Per-stream time-lapse (applied at export):
+    //  off | static (constant speed from from→to) | dynamic (fit to length)
+    timelapse: {
+      mode: 'off',
+      fromVal: 1, fromUnit: 'hour',
+      toVal: 1, toUnit: 'min',
+      targetVal: 30, targetUnit: 'sec',
+    },
     streamEnded: false,
     muted: false,
     stalled: false,
