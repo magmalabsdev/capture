@@ -1,7 +1,7 @@
 // Right panel: export settings — single / export all / merge.
 
 import { state, update, notify } from '../state.js';
-import { el, clear } from '../util/dom.js';
+import { el, clear, fa } from '../util/dom.js';
 import { formatBytes, safeName } from '../util/format.js';
 import {
   exportAll,
@@ -192,7 +192,12 @@ export function createExportPanel(root) {
     for (const v of vids) {
       const assigned = state.mergeAssignments[v.id] || [];
       const block = el('div', { class: 'merge-block' });
-      block.appendChild(el('div', { class: 'merge-video', text: `🎞 ${v.label}` }));
+      block.appendChild(
+        el('div', { class: 'merge-video' }, [
+          el('span', { class: 'mv-icon', html: fa('film') }),
+          el('span', { text: v.label }),
+        ])
+      );
       if (!auds.length) {
         block.appendChild(el('div', { class: 'muted tiny' }, 'No recorded audio to assign.'));
       }

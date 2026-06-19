@@ -111,12 +111,37 @@ export async function addCamera(deviceId) {
   return registerVideoSource({ stream, kind: 'camera', deviceId });
 }
 
-export async function addDisplay() {
-  const captured = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
-  return registerVideoSource({
+/**
+ * Register a single screen-capture session as a video source plus, when the
+ * user enabled "Share audio", an independent desktop-audio track. Both come
+ * from ONE getDisplayMedia call so they share a single capture session — this
+ * avoids a second concurrent screen share, which on many systems tears down the
+ * first capture (ending its track and stopping the recording).
+ */
+function registerDisplayCapture(captured, videoLabel) {
+  const videoSource = registerVideoSource({
     stream: new MediaStream(captured.getVideoTracks()),
     kind: 'display',
+    label: videoLabel,
   });
+  const audioTracks = captured.getAudioTracks();
+  if (audioTracks.length) {
+    registerAudioSource({
+      stream: new MediaStream(audioTracks),
+      kind: 'desktop',
+      label: 'Desktop audio',
+    });
+  } else {
+    notify('Screen added. To also capture desktop audio, re-share and tick "Share audio".', 'warn');
+  }
+  return videoSource;
+}
+
+export async function addDisplay() {
+  // Always request audio; it's added as a separate track only if actually shared.
+  getAudioContext(); // unlock metering within the user gesture
+  const captured = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+  return registerDisplayCapture(captured, 'Screen');
 }
 
 export async function addMicrophone(deviceId) {
@@ -125,41 +150,11 @@ export async function addMicrophone(deviceId) {
   return registerAudioSource({ stream, kind: 'mic', deviceId });
 }
 
-export async function addDesktopAudio() {
-  // System audio can only be captured alongside a display capture.
-  const captured = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-  const audioTracks = captured.getAudioTracks();
-  captured.getVideoTracks().forEach((t) => t.stop()); // we only want the audio
-  if (!audioTracks.length) {
-    throw new Error(
-      'No audio was shared. In the picker choose a Tab or "Entire screen" and enable "Share tab/system audio".'
-    );
-  }
-  return registerAudioSource({
-    stream: new MediaStream(audioTracks),
-    kind: 'desktop',
-    label: 'Desktop audio',
-  });
-}
-
-/** Default setup: main display + desktop audio + microphone. */
+/** Default setup: main display (+ desktop audio if shared) + microphone. */
 export async function quickStartDefault() {
   getAudioContext(); // unlock audio within the user gesture
   const display = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-  registerVideoSource({
-    stream: new MediaStream(display.getVideoTracks()),
-    kind: 'display',
-    label: 'Main display',
-  });
-  if (display.getAudioTracks().length) {
-    registerAudioSource({
-      stream: new MediaStream(display.getAudioTracks()),
-      kind: 'desktop',
-      label: 'Desktop audio',
-    });
-  } else {
-    notify('Tip: enable "Share audio" in the picker to capture desktop audio.', 'warn');
-  }
+  registerDisplayCapture(display, 'Main display');
   try {
     const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
     registerAudioSource({ stream: mic, kind: 'mic', label: 'Microphone' });

@@ -32,8 +32,9 @@ over HTTPS.
 | Audio                         | How                                              |
 | ----------------------------- | ------------------------------------------------ |
 | Laptop / external microphone  | **＋ Mic** (pick device from the ▾ menu)          |
-| Laptop / desktop audio        | **＋ Desktop audio** — *separate track* (enable   |
-|                               | "Share audio" in the picker; Chrome/Edge only)   |
+| Laptop / desktop audio        | Included automatically with **＋ Screen** as a    |
+|                               | *separate track* when you tick "Share audio" in  |
+|                               | the picker (Chrome/Edge only)                    |
 
 **Quick start** sets up the default configuration in one click: **main display +
 desktop audio + microphone** (each as an independent track).

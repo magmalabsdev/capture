@@ -1,7 +1,7 @@
 // Bottom bar: all audio tracks in a single line, each with a live VU meter.
 
 import { state, update } from '../state.js';
-import { el, clear } from '../util/dom.js';
+import { el, clear, fa } from '../util/dom.js';
 import { formatDuration } from '../util/format.js';
 import { startRecording, stopRecording, togglePause, elapsedMs } from '../recorder.js';
 import { removeSource } from '../sources.js';
@@ -21,19 +21,19 @@ export function createAudioBar(root) {
     const meter = el('div', { class: 'meter' }, [meterFill]);
 
     const btnStart = el('button', {
-      class: 'tbtn start', title: 'Start', html: '&#9679;',
+      class: 'tbtn start', title: 'Start', html: fa('circle'),
       onClick: () => startRecording(source),
     });
     const btnPause = el('button', {
-      class: 'tbtn pause', title: 'Pause / resume', html: '&#10073;&#10073;',
+      class: 'tbtn pause', title: 'Pause / resume', html: fa('pause'),
       onClick: () => togglePause(source),
     });
     const btnStop = el('button', {
-      class: 'tbtn stop', title: 'Finish', html: '&#9632;',
+      class: 'tbtn stop', title: 'Finish', html: fa('stop'),
       onClick: () => stopRecording(source),
     });
     const btnRemove = el('button', {
-      class: 'tbtn remove', title: 'Remove', html: '&times;',
+      class: 'tbtn remove', title: 'Remove', html: fa('xmark'),
       onClick: () => removeSource(source.id),
     });
     const controls = el('div', { class: 'aud-controls' }, [
@@ -80,7 +80,7 @@ export function createAudioBar(root) {
 
     els.btnStart.disabled = source.streamEnded || r.status === 'recording' || r.status === 'paused';
     els.btnPause.disabled = !(r.status === 'recording' || r.status === 'paused');
-    els.btnPause.innerHTML = r.status === 'paused' ? '&#9654;' : '&#10073;&#10073;';
+    els.btnPause.innerHTML = r.status === 'paused' ? fa('play') : fa('pause');
     els.btnStop.disabled = !(r.status === 'recording' || r.status === 'paused');
   }
 

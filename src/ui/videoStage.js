@@ -3,7 +3,7 @@
 // so live playback never drops.
 
 import { state, update } from '../state.js';
-import { el, clear } from '../util/dom.js';
+import { el, clear, fa } from '../util/dom.js';
 import { formatDuration, formatRes } from '../util/format.js';
 import {
   startRecording,
@@ -33,23 +33,23 @@ export function createVideoStage(root) {
     const timeLabel = el('span', { class: 'tile-time', text: '0:00' });
 
     const btnStart = el('button', {
-      class: 'tbtn start', title: 'Start recording', html: '&#9679;',
+      class: 'tbtn start', title: 'Start recording', html: fa('circle'),
       onClick: () => startRecording(source),
     });
     const btnPause = el('button', {
-      class: 'tbtn pause', title: 'Pause / resume', html: '&#10073;&#10073;',
+      class: 'tbtn pause', title: 'Pause / resume', html: fa('pause'),
       onClick: () => togglePause(source),
     });
     const btnStop = el('button', {
-      class: 'tbtn stop', title: 'Finish', html: '&#9632;',
+      class: 'tbtn stop', title: 'Finish', html: fa('stop'),
       onClick: () => stopRecording(source),
     });
     const btnMain = el('button', {
-      class: 'tbtn main', title: 'Set as main (speaker view)', html: '&#9974;',
+      class: 'tbtn main', title: 'Set as main (speaker view)', html: fa('expand'),
       onClick: () => update((s) => { s.speakerMainId = source.id; }),
     });
     const btnRemove = el('button', {
-      class: 'tbtn remove', title: 'Remove source', html: '&times;',
+      class: 'tbtn remove', title: 'Remove source', html: fa('xmark'),
       onClick: () => removeSource(source.id),
     });
 
@@ -122,7 +122,7 @@ export function createVideoStage(root) {
 
     els.btnStart.disabled = source.streamEnded || r.status === 'recording' || r.status === 'paused';
     els.btnPause.disabled = !(r.status === 'recording' || r.status === 'paused');
-    els.btnPause.innerHTML = r.status === 'paused' ? '&#9654;' : '&#10073;&#10073;';
+    els.btnPause.innerHTML = r.status === 'paused' ? fa('play') : fa('pause');
     els.btnStop.disabled = !(r.status === 'recording' || r.status === 'paused');
   }
 
@@ -182,7 +182,7 @@ export function createVideoStage(root) {
       clear(root);
       root.appendChild(
         el('div', { class: 'empty-stage' }, [
-          el('div', { class: 'empty-emoji', text: '🎬' }),
+          el('div', { class: 'empty-emoji', html: fa('clapperboard') }),
           el('div', { class: 'empty-title', text: 'No video sources yet' }),
           el('div', {
             class: 'muted',

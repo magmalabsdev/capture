@@ -1,13 +1,12 @@
 // Top toolbar: add sources, quick-start, global record controls, view toggle.
 
 import { state, update, notify } from '../state.js';
-import { el } from '../util/dom.js';
+import { el, fa } from '../util/dom.js';
 import {
   quickStartDefault,
   addCamera,
   addDisplay,
   addMicrophone,
-  addDesktopAudio,
 } from '../sources.js';
 import { startRecording, stopRecording, pauseRecording, resumeRecording } from '../recorder.js';
 
@@ -112,7 +111,7 @@ export function createToolbar(root) {
       el('div', { class: 'tb-group' }, [
         el('button', {
           class: 'btn primary',
-          text: '⚡ Quick start',
+          html: `${fa('bolt')}<span>Quick start</span>`,
           title: 'Main display + desktop audio + microphone',
           onClick: () => guard(quickStartDefault(), 'Quick start'),
         }),
@@ -121,16 +120,16 @@ export function createToolbar(root) {
       el('div', { class: 'tb-group' }, [
         el('button', {
           class: 'btn', dataset: { menuAnchor: '1' },
-          text: '＋ Camera ▾', onClick: cameraMenu,
+          html: `${fa('video')}<span>Camera</span>${fa('caret-down')}`, onClick: cameraMenu,
         }),
-        el('button', { class: 'btn', text: '＋ Screen', onClick: () => guard(addDisplay(), 'Add screen') }),
+        el('button', {
+          class: 'btn', html: `${fa('display')}<span>Screen</span>`,
+          title: 'Capture a screen, window, or tab — desktop audio is included if you tick "Share audio"',
+          onClick: () => guard(addDisplay(), 'Add screen'),
+        }),
         el('button', {
           class: 'btn', dataset: { menuAnchor: '1' },
-          text: '＋ Mic ▾', onClick: micMenu,
-        }),
-        el('button', {
-          class: 'btn', text: '＋ Desktop audio',
-          onClick: () => guard(addDesktopAudio(), 'Add desktop audio'),
+          html: `${fa('microphone')}<span>Mic</span>${fa('caret-down')}`, onClick: micMenu,
         }),
       ]),
 
@@ -139,26 +138,27 @@ export function createToolbar(root) {
       el('div', { class: 'tb-group' }, [
         el('button', {
           class: 'btn rec', disabled: !allSources().length,
-          text: '● Record all', onClick: recordAll,
+          html: `${fa('circle')}<span>Record all</span>`, onClick: recordAll,
         }),
         el('button', {
           class: 'btn', disabled: !anyActive,
-          text: anyRecording ? '❚❚ Pause all' : '▶ Resume all', onClick: pauseAll,
+          html: anyRecording ? `${fa('pause')}<span>Pause all</span>` : `${fa('play')}<span>Resume all</span>`,
+          onClick: pauseAll,
         }),
         el('button', {
           class: 'btn', disabled: !anyActive,
-          text: '■ Stop all', onClick: () => stopAll(),
+          html: `${fa('stop')}<span>Stop all</span>`, onClick: () => stopAll(),
         }),
       ]),
 
       el('div', { class: 'tb-group view-toggle' }, [
         el('button', {
           class: `seg ${s.view === 'grid' ? 'active' : ''}`,
-          text: 'Grid', onClick: () => update((st) => { st.view = 'grid'; }),
+          html: `${fa('table-cells-large')}<span>Grid</span>`, onClick: () => update((st) => { st.view = 'grid'; }),
         }),
         el('button', {
           class: `seg ${s.view === 'speaker' ? 'active' : ''}`,
-          text: 'Speaker', onClick: () => update((st) => { st.view = 'speaker'; }),
+          html: `${fa('user-large')}<span>Speaker</span>`, onClick: () => update((st) => { st.view = 'speaker'; }),
         }),
       ])
     );

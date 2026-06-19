@@ -42,6 +42,11 @@ export function el(tag, attrs = {}, children = []) {
   return node;
 }
 
+/** Font Awesome (free) icon markup. style: 'solid' | 'regular'. */
+export function fa(name, style = 'solid') {
+  return `<i class="fa-${style} fa-${name}" aria-hidden="true"></i>`;
+}
+
 /** Remove all children of a node. */
 export function clear(node) {
   while (node.firstChild) node.removeChild(node.firstChild);
