@@ -25,6 +25,8 @@ class Handler(SimpleHTTPRequestHandler):
         ".wasm": "application/wasm",
         ".json": "application/json",
         ".css": "text/css",
+        ".mp3": "audio/mpeg",
+        ".wav": "audio/wav",
     }
 
     def end_headers(self):

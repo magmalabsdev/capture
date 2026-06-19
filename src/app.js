@@ -1,7 +1,11 @@
 // Entry point: instantiate panels, wire state + render + timers.
 
-import { state, subscribe } from './state.js';
+import { state, subscribe, update } from './state.js';
 import { refreshDevices } from './sources.js';
+import { SESSION_ID } from './recorder.js';
+import { startRecordWatch } from './recordWatch.js';
+import { listRecordings } from './util/idb.js';
+import { armAudio, playWarning } from './sound.js';
 import { createToolbar } from './ui/toolbar.js';
 import { createVideoStage } from './ui/videoStage.js';
 import { createAudioBar } from './ui/audioBar.js';
@@ -29,7 +33,8 @@ function setupToast() {
   let hideTimer = null;
   subscribe((s) => {
     if (!s.notice) return;
-    const { message, type } = s.notice;
+    const { message, type, sound } = s.notice;
+    if (sound) playWarning();
     toastEl.textContent = message;
     toastEl.className = `toast show ${type}`;
     toastEl.hidden = false;
@@ -52,7 +57,10 @@ function main() {
   const exportPanel = createExportPanel(document.getElementById('export'));
 
   setupToast();
+  armAudio(); // enable warning sounds (unlocks on first interaction)
   initResizers();
+  startRecordWatch();
+  scanForRecovery();
 
   const renderAll = (s) => {
     toolbar.render(s);
@@ -69,6 +77,7 @@ function main() {
     stage.tick();
     audioBar.tick();
     inspector.tick();
+    exportPanel.tick();
   }, 250);
 
   // VU meters: every animation frame.
@@ -83,6 +92,19 @@ function main() {
   refreshDevices();
   if (navigator.mediaDevices && 'ondevicechange' in navigator.mediaDevices) {
     navigator.mediaDevices.addEventListener('devicechange', refreshDevices);
+  }
+
+  // Surface recordings left in storage by a previous/crashed session.
+  async function scanForRecovery() {
+    try {
+      const all = await listRecordings();
+      const leftovers = all.filter(
+        (m) => m.sessionId !== SESSION_ID && (m.bytes > 0 || m.segments > 0)
+      );
+      if (leftovers.length) update((s) => { s.recovery = leftovers; });
+    } catch {
+      /* IDB unavailable — skip recovery */
+    }
   }
 
   // Warn before leaving with an active recording.

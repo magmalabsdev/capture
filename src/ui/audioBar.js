@@ -3,6 +3,7 @@
 import { state, update } from '../state.js';
 import { el, clear, fa } from '../util/dom.js';
 import { formatDuration } from '../util/format.js';
+import { statusText } from './inspector.js';
 import { startRecording, stopRecording, togglePause, elapsedMs } from '../recorder.js';
 import { removeSource } from '../sources.js';
 import { readLevel } from '../audioMeter.js';
@@ -69,7 +70,10 @@ export function createAudioBar(root) {
     const { els, wrapper } = t;
     const r = source.rec;
     els.name.textContent = source.label;
-    els.kind.textContent = source.streamEnded ? 'ended' : source.kind;
+    els.kind.textContent =
+      source.streamEnded || source.stalled || source.muted || source.rec.errored
+        ? statusText(source)
+        : source.kind;
     els.time.textContent = formatDuration(elapsedMs(source));
 
     wrapper.classList.toggle('is-recording', r.status === 'recording');
@@ -77,6 +81,8 @@ export function createAudioBar(root) {
     wrapper.classList.toggle('is-stopped', r.status === 'stopped');
     wrapper.classList.toggle('is-selected', state.selectedId === source.id);
     wrapper.classList.toggle('stream-ended', !!source.streamEnded);
+    wrapper.classList.toggle('is-stalled', !!source.stalled && !source.streamEnded);
+    wrapper.classList.toggle('is-muted', !!source.muted && !source.streamEnded);
 
     els.btnStart.disabled = source.streamEnded || r.status === 'recording' || r.status === 'paused';
     els.btnPause.disabled = !(r.status === 'recording' || r.status === 'paused');

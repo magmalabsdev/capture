@@ -1,7 +1,7 @@
 // Left panel: detailed config + live stats for the selected track.
 
-import { state, update, findSource } from '../state.js';
-import { el, clear, select } from '../util/dom.js';
+import { state, update, findSource, notify } from '../state.js';
+import { el, clear, select, fa } from '../util/dom.js';
 import { formatDuration, formatBytes, formatRes } from '../util/format.js';
 import { elapsedMs } from '../recorder.js';
 import { readLevel } from '../audioMeter.js';
@@ -10,8 +10,18 @@ import {
   setAudioDevice,
   applyVideoConstraints,
   applyAudioConstraints,
+  recaptureSource,
   removeSource,
 } from '../sources.js';
+
+/** Human-readable status including drop/mute/stall/error flags. */
+export function statusText(source) {
+  if (source.streamEnded) return 'ended';
+  if (source.rec.errored) return 'error';
+  if (source.stalled) return 'stalled';
+  if (source.muted) return 'muted';
+  return source.rec.status;
+}
 
 const RES_PRESETS = [
   { value: '', label: 'Auto' },
@@ -111,14 +121,30 @@ export function createInspector(root) {
         ])
       );
     }
-    stats.appendChild(statRow('Status', source.streamEnded ? 'ended' : source.rec.status, 'statusStat'));
+    stats.appendChild(statRow('Status', statusText(source), 'statusStat'));
     stats.appendChild(statRow('Elapsed', formatDuration(elapsedMs(source)), 'timeStat'));
     stats.appendChild(
-      statRow('Recorded', source.rec.blob ? formatBytes(source.rec.size) : '—', 'sizeStat')
+      statRow('Recorded', source.rec.hasData ? formatBytes(source.rec.bytes) : '—', 'sizeStat')
     );
     stats.appendChild(statRow('Codec', source.rec.mimeType || '—'));
     root.appendChild(el('h3', { class: 'sub-title', text: 'Live stats' }));
     root.appendChild(stats);
+
+    if (source.streamEnded) {
+      root.appendChild(
+        el('button', {
+          class: 'btn primary block',
+          html: `${fa('rotate-right')}<span>Re-capture source</span>`,
+          onClick: (e) => {
+            const btn = e.currentTarget;
+            btn.disabled = true;
+            recaptureSource(source)
+              .catch((err) => notify(err.message || 'Re-capture failed.', 'error'))
+              .finally(() => { btn.disabled = false; });
+          },
+        })
+      );
+    }
 
     root.appendChild(
       el('button', {
@@ -244,8 +270,8 @@ export function createInspector(root) {
     const s = liveRefs.source;
     if (!s) return;
     if (liveRefs.timeStat) liveRefs.timeStat.textContent = formatDuration(elapsedMs(s));
-    if (liveRefs.statusStat) liveRefs.statusStat.textContent = s.streamEnded ? 'ended' : s.rec.status;
-    if (liveRefs.sizeStat && s.rec.blob) liveRefs.sizeStat.textContent = formatBytes(s.rec.size);
+    if (liveRefs.statusStat) liveRefs.statusStat.textContent = statusText(s);
+    if (liveRefs.sizeStat && s.rec.hasData) liveRefs.sizeStat.textContent = formatBytes(s.rec.bytes);
     if (liveRefs.resStat && s.settings && s.settings.width) {
       liveRefs.resStat.textContent = formatRes(s.settings.width, s.settings.height);
     }

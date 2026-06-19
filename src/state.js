@@ -21,6 +21,12 @@ export const state = {
 
   ffmpeg: { status: 'idle', progress: 0, message: '' }, // idle|loading|ready|running|error
 
+  // Periodic auto-export (rolling clip backups while recording continues).
+  periodic: { enabled: false, intervalSec: 120, nextAt: 0, count: 0, lastRunAt: 0 },
+
+  // Recordings left in IndexedDB by a previous/crashed session (crash recovery).
+  recovery: [],
+
   notice: null, // { message, type, ts }
 };
 
@@ -49,9 +55,10 @@ export function findSource(id) {
   return allSources().find((s) => s.id === id) || null;
 }
 
-/** Transient notice (rendered as a toast). */
-export function notify(message, type = 'info') {
+/** Transient notice (rendered as a toast). Pass { sound: true } to also play
+ *  the warning sound (used for critical recording degradation). */
+export function notify(message, type = 'info', opts = {}) {
   update((s) => {
-    s.notice = { message, type, ts: Date.now() };
+    s.notice = { message, type, ts: Date.now(), sound: !!opts.sound };
   });
 }

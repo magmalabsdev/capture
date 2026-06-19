@@ -2,8 +2,9 @@
 
 import { state, update, notify } from './state.js';
 import { uid } from './util/dom.js';
-import { freshRec, stopRecording } from './recorder.js';
+import { freshRec, stopRecording, continueRecording } from './recorder.js';
 import { attachMeter, detachMeter, getAudioContext } from './audioMeter.js';
+import { deleteRecording } from './util/idb.js';
 
 /* ------------------------------------------------------------------ */
 /* Devices                                                            */
@@ -36,6 +37,21 @@ function trackSettings(track) {
   return track && track.getSettings ? track.getSettings() : {};
 }
 
+/** Wire ended/mute/unmute listeners so drops and silences are surfaced. */
+function attachTrackListeners(source, track) {
+  if (!track) return;
+  track.addEventListener('ended', () => onTrackEnded(source));
+  track.addEventListener('mute', () => {
+    source.muted = true;
+    notify(`${source.label} muted — no signal is being captured.`, 'warn', { sound: true });
+    update();
+  });
+  track.addEventListener('unmute', () => {
+    source.muted = false;
+    update();
+  });
+}
+
 function registerVideoSource({ stream, kind, label, deviceId }) {
   const track = stream.getVideoTracks()[0];
   const source = {
@@ -54,9 +70,11 @@ function registerVideoSource({ stream, kind, label, deviceId }) {
     targetH: 0,
     targetFps: 0,
     streamEnded: false,
+    muted: false,
+    stalled: false,
     rec: freshRec(),
   };
-  if (track) track.addEventListener('ended', () => onTrackEnded(source));
+  attachTrackListeners(source, track);
   update((s) => {
     s.videoSources.push(source);
     if (!s.selectedId) s.selectedId = source.id;
@@ -78,10 +96,12 @@ function registerAudioSource({ stream, kind, label, deviceId }) {
     settings: trackSettings(track),
     bitrate: 0,
     streamEnded: false,
+    muted: false,
+    stalled: false,
     rec: freshRec(),
   };
   attachMeter(source);
-  if (track) track.addEventListener('ended', () => onTrackEnded(source));
+  attachTrackListeners(source, track);
   update((s) => {
     s.audioSources.push(source);
     if (!s.selectedId) s.selectedId = source.id;
@@ -92,11 +112,62 @@ function registerAudioSource({ stream, kind, label, deviceId }) {
 
 function onTrackEnded(source) {
   source.streamEnded = true;
-  if (source.rec.status === 'recording' || source.rec.status === 'paused') {
-    stopRecording(source);
-  }
-  notify(`${source.label} stopped (source ended).`, 'warn');
+  const wasActive = source.rec.status === 'recording' || source.rec.status === 'paused';
+  source._droppedWhileRecording = wasActive;
+  if (wasActive) stopRecording(source); // finalize & preserve what we have
+  notify(
+    `${source.label} stopped (source ended).${wasActive ? ' Footage preserved — use Re-capture to continue.' : ''}`,
+    'warn',
+    { sound: wasActive }
+  );
   update();
+}
+
+/**
+ * Re-acquire a dropped source (needs a user gesture for getDisplayMedia). Swaps
+ * the new live stream into the SAME source; if it was recording when it dropped,
+ * recording continues as a new segment so the export spans the gap.
+ */
+export async function recaptureSource(source) {
+  let stream;
+  if (source.mediaKind === 'video') {
+    if (source.kind === 'display') {
+      const cap = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+      stream = new MediaStream(cap.getVideoTracks());
+    } else {
+      const video = { width: { ideal: 1280 }, height: { ideal: 720 }, aspectRatio: { ideal: 16 / 9 } };
+      if (source.deviceId) video.deviceId = { exact: source.deviceId };
+      stream = await navigator.mediaDevices.getUserMedia({ video, audio: false });
+    }
+  } else if (source.kind === 'desktop') {
+    const cap = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+    const audioTracks = cap.getAudioTracks();
+    cap.getVideoTracks().forEach((t) => t.stop());
+    if (!audioTracks.length) throw new Error('No audio shared — tick "Share audio" in the picker.');
+    stream = new MediaStream(audioTracks);
+  } else {
+    const audio = source.deviceId ? { deviceId: { exact: source.deviceId } } : true;
+    stream = await navigator.mediaDevices.getUserMedia({ audio, video: false });
+  }
+
+  detachMeter(source);
+  source.stream.getTracks().forEach((t) => t.stop());
+  source.stream = stream;
+  source.streamEnded = false;
+  source.muted = false;
+  source.stalled = false;
+  const track =
+    source.mediaKind === 'video' ? stream.getVideoTracks()[0] : stream.getAudioTracks()[0];
+  source.settings = trackSettings(track);
+  if (source.mediaKind === 'audio') attachMeter(source);
+  attachTrackListeners(source, track);
+
+  if (source._droppedWhileRecording) {
+    source._droppedWhileRecording = false;
+    continueRecording(source); // resume into a new segment, same recording
+  }
+  update();
+  return source;
 }
 
 /* ------------------------------------------------------------------ */
@@ -180,6 +251,7 @@ export function removeSource(id) {
       }
       detachMeter(src);
       src.stream.getTracks().forEach((t) => t.stop());
+      deleteRecording(src.id).catch(() => {}); // drop durable data for this source
       list.splice(i, 1);
     }
     if (s.selectedId === id) {

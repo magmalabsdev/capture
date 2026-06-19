@@ -3,6 +3,7 @@
 import { state, update, notify } from '../state.js';
 import { el, clear, fa } from '../util/dom.js';
 import { formatBytes, safeName } from '../util/format.js';
+import { configurePeriodic } from '../periodicExport.js';
 import {
   exportAll,
   singleExport,
@@ -10,6 +11,9 @@ import {
   downloadBlob,
   audioToMp3,
   hasRecording,
+  getRecordingBlob,
+  exportRecovered,
+  discardRecovered,
 } from '../export/exporters.js';
 
 export function createExportPanel(root) {
@@ -54,13 +58,17 @@ export function createExportPanel(root) {
 
   async function downloadOne(src, btn) {
     try {
+      if (btn) { btn.disabled = true; btn.textContent = 'Preparing…'; }
+      const res = await getRecordingBlob(src); // reassembles all segments from storage
+      if (!res || !res.blob.size) throw new Error('No readable data for this track.');
       if (src.mediaKind === 'audio') {
-        if (btn) { btn.disabled = true; btn.textContent = 'Converting…'; }
-        const mp3 = await audioToMp3(src.rec.blob, src.rec.ext);
+        if (btn) btn.textContent = 'Converting…';
+        const mp3 = await audioToMp3(res.blob, res.ext);
         downloadBlob(mp3, `${safeName(src.label)}.mp3`);
       } else {
-        downloadBlob(src.rec.blob, `${safeName(src.label)}.${src.rec.ext}`);
+        downloadBlob(res.blob, `${safeName(src.label)}.${res.ext}`);
       }
+      if (res.partial) notify(`${src.label}: some footage was unreadable and skipped.`, 'warn');
     } catch (e) {
       notify(e.message || 'Download failed.', 'error');
     } finally {
@@ -71,6 +79,8 @@ export function createExportPanel(root) {
   function render(s) {
     clear(root);
     root.appendChild(el('h2', { class: 'panel-title', text: 'Export' }));
+
+    if (s.recovery && s.recovery.length) root.appendChild(renderRecovery(s));
 
     const vids = recordedVideos(s);
     const auds = recordedAudios(s);
@@ -109,6 +119,99 @@ export function createExportPanel(root) {
         'Combined exports are muxed with ffmpeg.wasm (video stream-copied, audio mixed).',
       ])
     );
+
+    root.appendChild(renderPeriodic(s));
+  }
+
+  function renderRecovery(s) {
+    const wrap = el('div', { class: 'recovery' });
+    wrap.appendChild(
+      el('div', { class: 'recovery-head' }, [
+        el('span', { html: fa('triangle-exclamation') }),
+        el('strong', { text: `Recovered ${s.recovery.length} unfinished recording${s.recovery.length === 1 ? '' : 's'}` }),
+      ])
+    );
+    wrap.appendChild(
+      el('p', { class: 'muted tiny' }, 'From a previous session that ended unexpectedly.')
+    );
+    for (const meta of s.recovery) {
+      wrap.appendChild(
+        el('div', { class: 'export-item' }, [
+          el('div', { class: 'ei-info' }, [
+            el('span', { class: 'ei-name', text: meta.label || 'recording' }),
+            el('span', { class: 'ei-meta', text: `${meta.ext || '?'} · ${formatBytes(meta.bytes || 0)}` }),
+          ]),
+          el('div', { class: 'recovery-actions' }, [
+            el('button', {
+              class: 'btn small', text: 'Export',
+              onClick: () => runExport(() => exportRecovered(meta)),
+            }),
+            el('button', {
+              class: 'btn small danger', text: 'Discard',
+              onClick: async () => {
+                await discardRecovered(meta.sourceId);
+                update((st) => { st.recovery = st.recovery.filter((m) => m.sourceId !== meta.sourceId); });
+              },
+            }),
+          ]),
+        ])
+      );
+    }
+    return wrap;
+  }
+
+  function renderPeriodic(s) {
+    const p = s.periodic;
+    const wrap = el('div', { class: 'auto-export' });
+    wrap.appendChild(el('h3', { class: 'sub-title', text: 'Auto-export' }));
+
+    const minutes = el('input', {
+      type: 'number',
+      class: 'input-num',
+      min: '0',
+      step: '0.5',
+      placeholder: 'off',
+      value: p.enabled ? String(+(p.intervalSec / 60).toFixed(2)) : '',
+      title: 'Minutes between auto-exports (0 or blank = off)',
+      onChange: (e) => {
+        const mins = parseFloat(e.target.value);
+        if (!mins || mins <= 0) configurePeriodic({ enabled: false });
+        else configurePeriodic({ enabled: true, intervalSec: Math.round(mins * 60) });
+      },
+    });
+    wrap.appendChild(
+      el('div', { class: 'auto-export-row' }, [
+        el('span', { class: 'auto-export-label', html: `${fa('clock-rotate-left')} <span>Export a clip every</span>` }),
+        minutes,
+        el('span', { class: 'auto-export-unit', text: 'min' }),
+      ])
+    );
+
+    const status = el('p', { class: 'muted tiny', dataset: { next: '1' } });
+    wrap.appendChild(status);
+
+    wrap.appendChild(
+      el('p', { class: 'muted tiny' },
+        'Keeps recording running and downloads a zip clip each interval (audio as MP3). Final footage is in the next manual export.')
+    );
+    return wrap;
+  }
+
+  // Live countdown + clip count (updated by the app ticker).
+  function tick() {
+    const el2 = root.querySelector('[data-next]');
+    if (!el2) return;
+    const p = state.periodic;
+    if (!p.enabled) {
+      el2.textContent = 'Off.';
+      return;
+    }
+    const secs = Math.max(0, Math.round((p.nextAt - Date.now()) / 1000));
+    const recording = [...state.videoSources, ...state.audioSources].some(
+      (x) => x.rec.status === 'recording'
+    );
+    const left = recording ? `next clip in ${secs}s` : 'waiting for a recording to start';
+    el2.textContent = `On · ${p.count} clip${p.count === 1 ? '' : 's'} exported · ${left}.`;
   }
 
   function renderSingle(s, auds) {
@@ -154,7 +257,7 @@ export function createExportPanel(root) {
         el('div', { class: 'export-item' }, [
           el('div', { class: 'ei-info' }, [
             el('span', { class: 'ei-name', text: src.label }),
-            el('span', { class: 'ei-meta', text: `${outExt} · ${formatBytes(src.rec.size)}` }),
+            el('span', { class: 'ei-meta', text: `${outExt} · ${formatBytes(src.rec.bytes || src.rec.size)}` }),
           ]),
           el('button', {
             class: 'btn small',
@@ -233,5 +336,5 @@ export function createExportPanel(root) {
     return wrap;
   }
 
-  return { render };
+  return { render, tick };
 }

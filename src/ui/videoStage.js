@@ -5,6 +5,7 @@
 import { state, update } from '../state.js';
 import { el, clear, fa } from '../util/dom.js';
 import { formatDuration, formatRes } from '../util/format.js';
+import { statusText } from './inspector.js';
 import {
   startRecording,
   stopRecording,
@@ -103,7 +104,7 @@ export function createVideoStage(root) {
     const st = source.settings || {};
 
     els.nameLabel.textContent = source.label;
-    els.statusLabel.textContent = source.streamEnded ? 'ended' : r.status;
+    els.statusLabel.textContent = statusText(source);
     els.resLabel.textContent =
       st.width && st.height
         ? formatRes(st.width, st.height) +
@@ -117,6 +118,8 @@ export function createVideoStage(root) {
     wrapper.classList.toggle('is-selected', state.selectedId === source.id);
     wrapper.classList.toggle('is-main', state.speakerMainId === source.id);
     wrapper.classList.toggle('stream-ended', !!source.streamEnded);
+    wrapper.classList.toggle('is-stalled', !!source.stalled && !source.streamEnded);
+    wrapper.classList.toggle('is-muted', !!source.muted && !source.streamEnded);
 
     video.style.transform = source.mirror ? 'scaleX(-1)' : '';
 

@@ -59,6 +59,23 @@ Each track records on its own `MediaRecorder`, so streams are fully independent
 Stop all** in the toolbar. Output is **MP4 (H.264/AAC) where the browser
 supports it**, otherwise **WebM (VP9/Opus)**.
 
+### Reliability (long sessions)
+
+- **Durable storage** — chunks stream to **IndexedDB** as they're captured, so a
+  long session survives memory/disk-blob eviction (the usual cause of "could not
+  be read" on export) and even a tab crash.
+- **Crash recovery** — if a session ends unexpectedly, the next load shows a
+  recovery banner in the Export panel to download or discard the leftover
+  recordings.
+- **Auto-segmenting** — recordings are checkpointed into 5-minute segments and
+  losslessly concatenated at export, so no single corrupt/evicted chunk can sink
+  a whole take.
+- **Drop detection + recovery** — a muted/ended track or a stalled recorder is
+  surfaced immediately (and footage preserved); use **Re-capture** in the
+  inspector to resume a dropped screen/desktop-audio source into the same take.
+- **Graceful export** — if one track is unreadable, the others still export with
+  a precise warning about what was skipped.
+
 ## Export modes
 
 - **Single** — only when exactly one video source exists: combines that video
