@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Capture — Multi-Stream Recorder</title>
+  <script>
+    // Apply saved appearance before paint to avoid a flash of the wrong theme.
+    try {
+      var g = (JSON.parse(localStorage.getItem('capture.settings.v1')) || {}).global || {};
+      document.documentElement.dataset.theme = g.theme === 'light' ? 'light' : 'dark';
+      document.documentElement.dataset.contrast = g.contrast === 'high' ? 'high' : 'normal';
+    } catch (e) {
+      document.documentElement.dataset.theme = 'dark';
+      document.documentElement.dataset.contrast = 'normal';
+    }
+  </script>
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    integrity="sha384-PPIZEGYM1v8zp5Py7UjFb79S58UeqCL9pYVnVPURKEqvioPROaVAJKKLzvH2rDnI"
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  />
+  <link rel="stylesheet" href="../styles/main.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="toolbar" id="toolbar"></header>
+    <div class="gutter gutter-row" data-resize="top" title="Drag to resize · double-click to reset"></div>
+    <div class="main">
+      <aside class="panel left" id="inspector"></aside>
+      <div class="gutter gutter-col" data-resize="left" title="Drag to resize · double-click to reset"></div>
+      <section class="stage" id="stage"></section>
+      <div class="gutter gutter-col" data-resize="right" title="Drag to resize · double-click to reset"></div>
+      <aside class="panel right" id="export"></aside>
+    </div>
+    <div class="gutter gutter-row" data-resize="bottom" title="Drag to resize · double-click to reset"></div>
+    <footer class="audiobar-wrap">
+      <div class="audiobar" id="audiobar"></div>
+    </footer>
+  </div>
+  <div class="toast" id="toast" hidden></div>
+  <div class="modal-root" id="settings"></div>
+  <script type="module" src="../src/app.js"></script>
+</body>
+</html>

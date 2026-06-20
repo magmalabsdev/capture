@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Capture — Multi-Stream Recorder</title>
+  <title>Capture — Multi-Stream Screen &amp; Camera Recorder</title>
+  <meta name="description" content="Record every screen, camera, and mic at once — each as its own independent track. Runs in your browser. No install, no account, nothing uploaded." />
   <script>
     // Apply saved appearance before paint to avoid a flash of the wrong theme.
     try {
@@ -15,6 +16,7 @@
       document.documentElement.dataset.contrast = 'normal';
     }
   </script>
+
   <link
     rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
@@ -22,26 +24,711 @@
     crossorigin="anonymous"
     referrerpolicy="no-referrer"
   />
-  <link rel="stylesheet" href="styles/main.css" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" />
+
+  <style>
+    /* ---- Fonts (match the recorder) ---- */
+    @font-face { font-family:'Open Sauce Two'; src:url('https://cdn.jsdelivr.net/gh/marcologous/Open-Sauce-Fonts@master/fonts/OpenSauceTwo/OpenSauceTwo-Regular.woff2') format('woff2'); font-weight:400; font-display:swap; }
+    @font-face { font-family:'Open Sauce Two'; src:url('https://cdn.jsdelivr.net/gh/marcologous/Open-Sauce-Fonts@master/fonts/OpenSauceTwo/OpenSauceTwo-Medium.woff2') format('woff2'); font-weight:500; font-display:swap; }
+    @font-face { font-family:'Open Sauce Two'; src:url('https://cdn.jsdelivr.net/gh/marcologous/Open-Sauce-Fonts@master/fonts/OpenSauceTwo/OpenSauceTwo-SemiBold.woff2') format('woff2'); font-weight:600; font-display:swap; }
+    @font-face { font-family:'Open Sauce Two'; src:url('https://cdn.jsdelivr.net/gh/marcologous/Open-Sauce-Fonts@master/fonts/OpenSauceTwo/OpenSauceTwo-Bold.woff2') format('woff2'); font-weight:700; font-display:swap; }
+    @font-face { font-family:'Open Sauce Two'; src:url('https://cdn.jsdelivr.net/gh/marcologous/Open-Sauce-Fonts@master/fonts/OpenSauceTwo/OpenSauceTwo-ExtraBold.woff2') format('woff2'); font-weight:800; font-display:swap; }
+
+    /* ---- Design tokens (mirrored from styles/main.css) ---- */
+    :root {
+      --accent-900:#180827; --accent-800:#220b39; --accent-700:#2f1254; --accent-600:#3b1a68;
+      --accent-500:#4d2386; --accent-400:#6a3db0; --accent-300:#8a65d6; --accent-200:#b6a5ee;
+      --accent-100:#ded6f8; --accent-50:#f4f1fd;
+      --bg:#0d0f14; --bg-2:#12141b; --panel:#14161e; --panel-2:#1c1f29; --panel-3:#252934;
+      --line:#2b303c; --line-soft:#21252f; --text:#e8eaf0; --muted:#9aa1b2;
+      --hi:#aab2c5; --hi-ring:rgba(170,178,197,0.32);
+      --rec:#ff5d6c; --ok:#46d39a; --warn:#f5b955;
+      --radius:18px; --radius-sm:12px; --radius-btn:6px;
+      --ease:cubic-bezier(0.2,0.8,0.2,1);
+      --font:'Open Sauce Two', ui-sans-serif, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      --font-mono:'Space Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    :root[data-theme="light"] {
+      --bg:#f7f8fc; --bg-2:#eef1f7; --panel:#ffffff; --panel-2:#f3f5fa; --panel-3:#e7ebf3;
+      --line:#dde3ec; --line-soft:#eaeef4; --text:#0f172a; --muted:#5b6577;
+      --hi:#475569; --hi-ring:rgba(71,85,105,0.26);
+      --rec:#e11d48; --ok:#059669; --warn:#b45309;
+    }
+
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body {
+      margin:0; background:var(--bg); color:var(--text);
+      font-family:var(--font); font-size:15px; line-height:1.6;
+      -webkit-font-smoothing:antialiased; overflow-x:hidden;
+    }
+    a { color:inherit; text-decoration:none; }
+    .wrap { width:min(1120px, 92vw); margin-inline:auto; }
+    .mono { font-family:var(--font-mono); }
+    .eyebrow {
+      font-family:var(--font-mono); font-size:11px; letter-spacing:.18em;
+      text-transform:uppercase; color:var(--accent-300); margin:0 0 14px;
+    }
+    section { padding:clamp(64px, 9vw, 120px) 0; }
+    h2.section-title {
+      font-size:clamp(26px, 4vw, 40px); font-weight:800; letter-spacing:-.02em;
+      margin:0 0 10px; line-height:1.1;
+    }
+    .section-sub { color:var(--muted); max-width:620px; margin:0 0 44px; font-size:clamp(15px,1.6vw,17px); }
+
+    /* ---- Buttons ---- */
+    .btn {
+      display:inline-flex; align-items:center; gap:9px; cursor:pointer; border:none;
+      font-family:var(--font); font-weight:700; font-size:14px; line-height:1;
+      padding:13px 20px; border-radius:var(--radius-btn);
+      transition:transform .14s var(--ease), background .14s var(--ease), border-color .14s var(--ease);
+    }
+    .btn:active { transform:translateY(1px); }
+    .btn-primary { background:var(--accent-500); color:#fff; }
+    .btn-primary:hover { background:var(--accent-400); }
+    .btn-ghost { background:transparent; color:var(--text); border:1px solid var(--line); }
+    .btn-ghost:hover { background:var(--panel-2); border-color:var(--panel-3); }
+    .btn-lg { padding:15px 24px; font-size:15px; }
+
+    /* ---- Nav ---- */
+    .nav {
+      position:sticky; top:0; z-index:50; backdrop-filter:blur(10px);
+      background:color-mix(in srgb, var(--bg) 78%, transparent);
+      border-bottom:1px solid var(--line-soft);
+    }
+    .nav-inner { display:flex; align-items:center; justify-content:space-between; height:62px; }
+    .brand { display:flex; align-items:center; gap:10px; font-weight:800; letter-spacing:-.01em; font-size:17px; }
+    .brand .dot {
+      width:11px; height:11px; border-radius:50%; background:var(--rec);
+      box-shadow:0 0 0 4px color-mix(in srgb, var(--rec) 22%, transparent);
+    }
+    .nav-links { display:flex; align-items:center; gap:26px; }
+    .nav-links a.lnk { color:var(--muted); font-size:14px; font-weight:500; transition:color .12s var(--ease); }
+    .nav-links a.lnk:hover { color:var(--text); }
+    @media (max-width:720px){ .nav-links .lnk { display:none; } }
+
+    /* ---- Hero ---- */
+    .hero { padding-top:clamp(40px,6vw,72px); padding-bottom:clamp(48px,7vw,90px); text-align:center; }
+    .hero-pill {
+      display:inline-flex; align-items:center; gap:8px; font-family:var(--font-mono);
+      font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted);
+      border:1px solid var(--line); background:var(--panel); border-radius:999px;
+      padding:6px 14px; margin-bottom:26px;
+    }
+    .hero-pill .live { width:7px; height:7px; border-radius:50%; background:var(--ok); }
+
+    /* ===== Hero animation canvas (peel & assemble) ===== */
+    .scene-stage {
+      width:min(880px,100%); aspect-ratio:16/9; margin:0 auto clamp(34px,5vw,52px);
+      display:block; background:var(--bg-2); border:1px solid var(--line);
+      border-radius:var(--radius); overflow:hidden;
+    }
+    :root[data-theme="light"] .scene-stage { background:#eef1f7; }
+
+    /* JS-animated SVG groups (transform-driven slide / peel / assemble) */
+    .scene-stage .scene,
+    .scene-stage .feed,
+    .scene-stage #captureUI,
+    .scene-stage .connector {
+      transition:transform .45s var(--ease), opacity .35s var(--ease);
+      transform-box:fill-box; transform-origin:0 0;
+    }
+    .scene-stage.instant * { transition:none !important; }
+
+    /* device line-art */
+    .dev      { fill:none; stroke:var(--muted); stroke-width:2; stroke-linejoin:round; }
+    .dev-soft { fill:none; stroke:var(--line);  stroke-width:2; }
+    .dev-fill { fill:var(--panel); stroke:var(--line); stroke-width:1.5; }
+    .well     { fill:#06080c; }
+    :root[data-theme="light"] .well { fill:#dde3ec; }
+    .devdot   { fill:var(--muted); }
+    .devacc   { fill:none; stroke:var(--accent-300); stroke-width:2; }
+
+    /* captured feed tiles */
+    .feed .scr   { fill:#0a0c11; stroke:var(--fc,#8a65d6); stroke-width:1.6; }
+    :root[data-theme="light"] .feed .scr { fill:#10151f; }
+    .feed .scrIn { fill:color-mix(in srgb, var(--fc,#8a65d6) 20%, transparent); stroke:none; }
+    .feed .glyph { fill:none; stroke:color-mix(in srgb, var(--fc,#8a65d6) 75%, white 0%); stroke-width:2; opacity:.9; }
+    .feed .lbl   { font-family:var(--font-mono); font-size:9px; letter-spacing:.04em; fill:#cfd6e6; }
+    .feed .led   { fill:var(--rec); }
+    .feed .wv    { fill:var(--fc,#46d39a); }
+    .feed.peeled { filter:drop-shadow(0 9px 16px rgba(0,0,0,.5)); }
+    .connector   { stroke:var(--fc,#8a65d6); stroke-width:1.5; stroke-dasharray:3 3; }
+
+    /* final Capture UI mock */
+    #captureUI .panel-bg { fill:var(--panel); stroke:var(--line); stroke-width:1.5; }
+    #captureUI .bar-bg   { fill:#0a0c11; stroke:var(--line); stroke-width:1.5; }
+    :root[data-theme="light"] #captureUI .bar-bg { fill:#e9edf4; }
+    #captureUI .ui-lbl   { font-family:var(--font-mono); font-size:9px; letter-spacing:.12em; fill:var(--muted); }
+    #captureUI .ui-dot   { fill:var(--rec); }
+
+    .hero-title {
+      font-size:clamp(40px, 8vw, 82px); font-weight:800; letter-spacing:-.03em; line-height:1;
+      margin:0 0 18px; min-height:1em;
+    }
+    .hero-title .cursor, .hero-hook .cursor { color:var(--accent-300); font-weight:400; animation:caret .9s steps(1) infinite; }
+    @keyframes caret { 0%,50%{ opacity:1; } 51%,100%{ opacity:0; } }
+    .hero-hook { font-size:clamp(16px, 2.3vw, 21px); color:var(--muted); max-width:640px; margin:0 auto 34px; min-height:1.6em; }
+    .hero-actions { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; opacity:0; transform:translateY(10px); transition:opacity .5s var(--ease), transform .5s var(--ease); }
+    .hero-actions.show { opacity:1; transform:none; }
+
+    /* ---- Feature grid ---- */
+    .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+    @media (max-width:860px){ .grid-3 { grid-template-columns:1fr; } }
+    .card {
+      background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+      padding:26px; transition:border-color .14s var(--ease), transform .14s var(--ease);
+    }
+    .card:hover { border-color:var(--panel-3); transform:translateY(-3px); }
+    .card .ic {
+      width:42px; height:42px; border-radius:12px; display:grid; place-items:center;
+      background:color-mix(in srgb, var(--accent-500) 22%, transparent); color:var(--accent-200);
+      font-size:17px; margin-bottom:16px;
+    }
+    .card h3 { margin:0 0 8px; font-size:18px; font-weight:700; letter-spacing:-.01em; }
+    .card p { margin:0; color:var(--muted); font-size:14.5px; }
+    .card em { color:var(--text); font-style:normal; font-weight:600; }
+
+    .strip-banner {
+      margin-top:18px; background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+      padding:22px 26px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; justify-content:center; text-align:center;
+    }
+    .strip-banner i { color:var(--ok); font-size:18px; }
+    .strip-banner b { font-weight:700; }
+    .strip-banner span { color:var(--muted); }
+
+    /* ---- Comparison table ---- */
+    .table-scroll { overflow-x:auto; border:1px solid var(--line); border-radius:var(--radius); background:var(--panel); }
+    table.compare { width:100%; border-collapse:collapse; min-width:820px; }
+    table.compare th, table.compare td { padding:14px 16px; text-align:center; border-bottom:1px solid var(--line-soft); font-size:14px; }
+    table.compare thead th { font-size:13px; color:var(--muted); font-weight:600; position:sticky; top:0; background:var(--panel); }
+    table.compare tbody th { text-align:left; font-weight:600; color:var(--text); white-space:nowrap; }
+    table.compare tr:last-child td, table.compare tr:last-child th { border-bottom:none; }
+    .col-cap { background:color-mix(in srgb, var(--accent-500) 12%, transparent); }
+    th.col-cap { color:var(--accent-200); font-weight:800; }
+    td.is-superior {
+      background:color-mix(in srgb, var(--accent-500) 26%, transparent);
+      color:var(--accent-100); font-weight:700;
+    }
+    :root[data-theme="light"] td.is-superior { color:var(--accent-700); }
+    .yes { color:var(--ok); } .no { color:var(--muted); opacity:.55; }
+    table.compare td .sub { display:block; font-size:11px; color:var(--muted); font-weight:400; margin-top:2px; }
+    td.is-superior .sub { color:color-mix(in srgb, var(--accent-100) 80%, transparent); }
+
+    /* ---- Self-contained ---- */
+    .self { text-align:center; }
+    .self .grid-3 { margin-top:8px; }
+    .self .card { text-align:left; }
+    .closing { text-align:center; margin-top:44px; }
+
+    /* ---- Footer ---- */
+    footer.site {
+      border-top:1px solid var(--line-soft); padding:34px 0; color:var(--muted); font-size:13.5px;
+    }
+    .foot-inner { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+    .foot-inner a:hover { color:var(--text); }
+
+    /* ---- Reduced motion: skip the sequence, show the assembled state ---- */
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior:auto; }
+      .hero-actions { opacity:1; transform:none; }
+      .card:hover { transform:none; }
+    }
+  </style>
 </head>
 <body>
-  <div class="app">
-    <header class="toolbar" id="toolbar"></header>
-    <div class="gutter gutter-row" data-resize="top" title="Drag to resize · double-click to reset"></div>
-    <div class="main">
-      <aside class="panel left" id="inspector"></aside>
-      <div class="gutter gutter-col" data-resize="left" title="Drag to resize · double-click to reset"></div>
-      <section class="stage" id="stage"></section>
-      <div class="gutter gutter-col" data-resize="right" title="Drag to resize · double-click to reset"></div>
-      <aside class="panel right" id="export"></aside>
+  <!-- ===== Nav ===== -->
+  <nav class="nav">
+    <div class="wrap nav-inner">
+      <a class="brand" href="#top"><span class="dot"></span>Capture</a>
+      <div class="nav-links">
+        <a class="lnk" href="#features">Features</a>
+        <a class="lnk" href="#compare">Compare</a>
+        <a class="lnk" href="#" data-gh>GitHub</a>
+        <a class="btn btn-primary" data-app><i class="fa-solid fa-circle-dot"></i>Open Recorder</a>
+      </div>
     </div>
-    <div class="gutter gutter-row" data-resize="bottom" title="Drag to resize · double-click to reset"></div>
-    <footer class="audiobar-wrap">
-      <div class="audiobar" id="audiobar"></div>
-    </footer>
-  </div>
-  <div class="toast" id="toast" hidden></div>
-  <div class="modal-root" id="settings"></div>
-  <script type="module" src="src/app.js"></script>
+  </nav>
+
+  <!-- ===== Hero ===== -->
+  <header class="hero wrap" id="top">
+    <div class="hero-pill"><span class="live"></span>Browser-based · nothing uploaded</div>
+
+    <svg class="scene-stage" id="stage" viewBox="0 0 860 484" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <g id="captureUI"></g>
+      <g id="scenes"></g>
+      <g id="dock"></g>
+    </svg>
+
+    <h1 class="hero-title" id="title">Capture</h1>
+    <p class="hero-hook" id="hook">Record every screen, camera, and mic at once — each as its own track.</p>
+    <div class="hero-actions" id="actions">
+      <a class="btn btn-primary btn-lg" data-app><i class="fa-solid fa-circle-dot"></i>Open Recorder</a>
+      <a class="btn btn-ghost btn-lg" data-gh><i class="fa-brands fa-github"></i>View on GitHub</a>
+    </div>
+  </header>
+
+  <!-- ===== Features ===== -->
+  <section id="features">
+    <div class="wrap">
+      <p class="eyebrow">What makes it different</p>
+      <h2 class="section-title">One panel for what used to take a pile of apps and devices.</h2>
+      <p class="section-sub">Recording a screen, a webcam, a phone, and a couple of mics normally means a separate tool for each — then wrestling the files together afterward. Capture runs every stream from a single panel, recording them at once while keeping each as its own independent track.</p>
+
+      <div class="grid-3">
+        <div class="card">
+          <div class="ic"><i class="fa-solid fa-layer-group"></i></div>
+          <h3>Every stream, its own track</h3>
+          <p>Webcam, laptop screen, an external monitor, a single browser tab, even a <em>connected phone</em> — each is an independent video track you start, pause, and finish on its own.</p>
+        </div>
+        <div class="card">
+          <div class="ic"><i class="fa-solid fa-sliders"></i></div>
+          <h3>Audio you can actually separate</h3>
+          <p>Microphone, external mic, and <em>desktop/system audio as its own track</em> — not baked into the video. Live VU meters on every channel so you can see what's hot.</p>
+        </div>
+        <div class="card">
+          <div class="ic"><i class="fa-solid fa-file-export"></i></div>
+          <h3>Export your way</h3>
+          <p><em>Single</em> — one video plus all audio. <em>Export All</em> — every track on its own. <em>Merge</em> — assign one or more audio tracks to each video before you render.</p>
+        </div>
+      </div>
+
+      <div class="strip-banner">
+        <i class="fa-solid fa-shield-halved"></i>
+        <span><b>Runs in your browser.</b> No install, no account, nothing uploaded — recording stays on your machine.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Comparison ===== -->
+  <section id="compare">
+    <div class="wrap">
+      <p class="eyebrow">How it compares</p>
+      <h2 class="section-title">One tool where others need a stack</h2>
+      <p class="section-sub">Capturing several screens, cameras, and audio sources independently usually means juggling plugins, paid apps, or a cloud service. Here's where Capture lands.</p>
+
+      <div class="table-scroll">
+        <table class="compare">
+          <thead>
+            <tr>
+              <th></th>
+              <th class="col-cap">Capture</th>
+              <th>Loom</th>
+              <th>OBS Studio</th>
+              <th>QuickTime</th>
+              <th>Riverside</th>
+              <th>Zoom</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th>Multiple video streams at once</th>
+              <td class="col-cap is-superior">Yes<span class="sub">parallel tracks</span></td>
+              <td class="no">Cam + screen combined</td>
+              <td class="yes">Via scenes</td>
+              <td class="no">One at a time</td>
+              <td class="yes">Multi-cam</td>
+              <td class="no">No</td>
+            </tr>
+            <tr>
+              <th>Separate audio tracks</th>
+              <td class="col-cap is-superior">Yes</td>
+              <td class="no">Mixed</td>
+              <td class="yes">Advanced setup</td>
+              <td class="no">Mixed</td>
+              <td class="yes">Per-mic</td>
+              <td class="no">Limited</td>
+            </tr>
+            <tr>
+              <th>Desktop audio as its own track</th>
+              <td class="col-cap is-superior">Yes</td>
+              <td class="no">No</td>
+              <td class="yes">With routing</td>
+              <td class="no">Not supported</td>
+              <td class="no">No</td>
+              <td class="no">No</td>
+            </tr>
+            <tr>
+              <th>Per-track pause / resume</th>
+              <td class="col-cap is-superior">Yes</td>
+              <td class="no">No</td>
+              <td class="no">Global only</td>
+              <td class="no">No</td>
+              <td class="no">No</td>
+              <td class="no">Global only</td>
+            </tr>
+            <tr>
+              <th>Record a connected phone</th>
+              <td class="col-cap is-superior">Yes</td>
+              <td class="no">Separate app</td>
+              <td class="no">No</td>
+              <td class="yes">iOS via cable</td>
+              <td class="yes">Mobile app</td>
+              <td class="no">No</td>
+            </tr>
+            <tr>
+              <th>Flexible export (single / all / merge)</th>
+              <td class="col-cap is-superior">Yes</td>
+              <td class="no">No</td>
+              <td class="no">Single file</td>
+              <td class="no">Single file</td>
+              <td class="yes">Cloud render</td>
+              <td class="no">Single file</td>
+            </tr>
+            <tr>
+              <th>Runs in browser, no install</th>
+              <td class="col-cap is-superior">Yes</td>
+              <td class="yes">Extension</td>
+              <td class="no">Desktop app</td>
+              <td class="no">Desktop app</td>
+              <td class="is-superior">Yes</td>
+              <td class="no">Desktop app</td>
+            </tr>
+            <tr>
+              <th>Local-only · nothing uploaded</th>
+              <td class="col-cap is-superior">Yes</td>
+              <td class="no">Cloud</td>
+              <td class="is-superior">Local</td>
+              <td class="is-superior">Local</td>
+              <td class="no">Cloud</td>
+              <td class="no">Cloud</td>
+            </tr>
+            <tr>
+              <th>Price</th>
+              <td class="col-cap is-superior">Free · open source</td>
+              <td class="no">Free / paid tiers</td>
+              <td class="is-superior">Free</td>
+              <td class="is-superior">Free</td>
+              <td class="no">From ~$15/mo</td>
+              <td class="no">Free / paid tiers</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Self-contained ===== -->
+  <section class="self">
+    <div class="wrap">
+      <p class="eyebrow">No strings attached</p>
+      <h2 class="section-title">No accounts. No uploads. Just open it.</h2>
+      <p class="section-sub" style="margin-inline:auto;">A static site that does the whole job locally. Open the page, grant camera/screen access, and record.</p>
+
+      <div class="grid-3">
+        <div class="card">
+          <div class="ic"><i class="fa-solid fa-globe"></i></div>
+          <h3>Browser-based</h3>
+          <p>Nothing to download or install. It's a static page — open it and you're recording in seconds.</p>
+        </div>
+        <div class="card">
+          <div class="ic"><i class="fa-solid fa-lock"></i></div>
+          <h3>Local &amp; private</h3>
+          <p>Streams are captured and rendered on your device. Your recordings never leave your machine.</p>
+        </div>
+        <div class="card">
+          <div class="ic"><i class="fa-brands fa-github"></i></div>
+          <h3>Open source</h3>
+          <p>Built with plain HTML, CSS, and JavaScript — no framework, no build step. Read it, fork it, host it.</p>
+        </div>
+      </div>
+
+      <div class="closing">
+        <a class="btn btn-primary btn-lg" data-app><i class="fa-solid fa-circle-dot"></i>Open Recorder</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Footer ===== -->
+  <footer class="site">
+    <div class="wrap foot-inner">
+      <div class="brand" style="font-size:15px;"><span class="dot"></span>Capture <span style="color:var(--muted); font-weight:500;">· by MagmaLabs</span></div>
+      <div style="display:flex; gap:22px; align-items:center;">
+        <a data-gh><i class="fa-brands fa-github"></i> GitHub</a>
+        <a data-app>Open Recorder</a>
+        <span id="year"></span>
+      </div>
+    </div>
+  </footer>
+
+  <script type="module">
+    // ---- Editable constants ----
+    const APP_URL = 'app/';
+    const GITHUB_URL = 'https://github.com/magmalabsdev/capture';
+
+    // Wire up the app + GitHub links.
+    for (const a of document.querySelectorAll('[data-app]')) a.setAttribute('href', APP_URL);
+    for (const a of document.querySelectorAll('[data-gh]')) {
+      a.setAttribute('href', GITHUB_URL);
+      a.setAttribute('target', '_blank');
+      a.setAttribute('rel', 'noopener');
+    }
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const nextFrame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+    const titleEl = document.getElementById('title');
+    const hookEl = document.getElementById('hook');
+    const actions = document.getElementById('actions');
+    const TITLE = titleEl.textContent;
+    const HOOK = hookEl.textContent;
+
+    function type(el, text, speed) {
+      return new Promise((resolve) => {
+        el.innerHTML = '<span class="cursor">▍</span>';
+        let i = 0;
+        (function step() {
+          el.innerHTML = text.slice(0, i) + '<span class="cursor">▍</span>';
+          if (i++ >= text.length) { el.textContent = text; return resolve(); }
+          setTimeout(step, speed);
+        })();
+      });
+    }
+
+    /* ===== Hero "peel & assemble" animation =====
+       One SVG canvas (viewBox 0 0 860 484). Devices are line-art in #scenes;
+       each captured feed is a tile in #dock that slides in on its device, then
+       "peels" to a dock edge (video → top, audio → bottom) and finally drops
+       into the Capture UI grid / audio bar. Everything is transform-driven. */
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.getElementById('stage');
+    const scenesG = svg.querySelector('#scenes');
+    const dockG = svg.querySelector('#dock');
+    const uiG = svg.querySelector('#captureUI');
+
+    const VW = 120, VH = 70, AW = 150, AH = 46, OFF_R = 620;
+    const dockVx = (i) => 16 + i * 117, dockVy = 12;
+    const dockAx = (i) => 18 + i * 162, dockAy = 426;
+
+    const VC = { 'PHONE':'#3b82f6','SCREEN':'#8a65d6','WEBCAM':'#22d3ee',
+      'MONITOR 1':'#38bdf8','MONITOR 2':'#818cf8','BIG SCREEN':'#a78bfa','CAMERA':'#34d399' };
+    const AC = { 'HP MIC':'#46d39a','DESKTOP':'#f5b955','MIC':'#34d399' };
+
+    const E = (tag, attrs = {}, parent = null, text = null) => {
+      const e = document.createElementNS(NS, tag);
+      for (const k in attrs) e.setAttribute(k, attrs[k]);
+      if (text != null) e.textContent = text;
+      if (parent) parent.appendChild(e);
+      return e;
+    };
+    const place = (el, x, y, s = 1, o = 1) => {
+      el.style.transform = `translate(${x}px,${y}px)` + (s !== 1 ? ` scale(${s})` : '');
+      el.style.opacity = o;
+    };
+    const spawn = (el, x, y, s = 1) => { el.style.transition = 'none'; place(el, x + OFF_R, y, s, 0); };
+    const enter = async (items) => {
+      await nextFrame();
+      for (const it of items) { it.el.style.transition = ''; place(it.el, it.x, it.y, it.s ?? 1, 1); }
+    };
+    const exit = (el) => place(el, -740, 0, 1, 0);
+
+    function videoFeed(label) {
+      const g = E('g', { class: 'feed' }, dockG);
+      g.style.setProperty('--fc', VC[label] || '#8a65d6');
+      E('rect', { class: 'scr', x: 0, y: 0, width: VW, height: VH, rx: 8 }, g);
+      E('rect', { class: 'scrIn', x: 7, y: 7, width: VW - 14, height: VH - 26, rx: 5 }, g);
+      const cx = VW / 2, cy = (VH - 19) / 2 + 7, s = 7;
+      E('path', { class: 'glyph', d: `M ${cx - s/2} ${cy - s} L ${cx + s} ${cy} L ${cx - s/2} ${cy + s} Z` }, g);
+      E('text', { class: 'lbl', x: 8, y: VH - 7 }, g, label);
+      E('circle', { class: 'led', cx: VW - 12, cy: VH - 11, r: 3.6 }, g);
+      return g;
+    }
+    function audioFeed(label) {
+      const g = E('g', { class: 'feed' }, dockG);
+      g.style.setProperty('--fc', AC[label] || '#46d39a');
+      E('rect', { class: 'scr', x: 0, y: 0, width: AW, height: AH, rx: 8 }, g);
+      const bars = 16, bw = 4, gap = 3.6, x0 = 12, mid = 17;
+      for (let i = 0; i < bars; i++) {
+        const h = 5 + ((i * 7) % 6) * 2.6;
+        E('rect', { class: 'wv', x: x0 + i * (bw + gap), y: mid - h / 2, width: bw, height: h, rx: 1.5 }, g);
+      }
+      E('text', { class: 'lbl', x: 12, y: AH - 7 }, g, label);
+      E('circle', { class: 'led', cx: AW - 12, cy: 11, r: 3.4 }, g);
+      return g;
+    }
+
+    const videos = [], audios = [];
+    function dockVideo(el) { el.classList.add('peeled'); place(el, dockVx(videos.length), dockVy, 1); videos.push(el); }
+    function dockAudio(el) { el.classList.add('peeled'); place(el, dockAx(audios.length), dockAy, 1); audios.push(el); }
+
+    // ---- Scenes ----
+    async function scenePhone() {
+      const body = E('g', { class: 'scene' }, scenesG);
+      E('rect', { class: 'dev-fill', x: 352, y: 189, width: 156, height: 102, rx: 18 }, body);
+      E('rect', { class: 'well', x: 366, y: 201, width: 128, height: 78, rx: 10 }, body);
+      E('circle', { class: 'devdot', cx: 361, cy: 240, r: 2.6 }, body);
+      const feed = videoFeed('PHONE');
+      spawn(body, 0, 0, 1); spawn(feed, 370, 205, 1);
+      await enter([{ el: body, x: 0, y: 0 }, { el: feed, x: 370, y: 205 }]);
+      await wait(760);
+      dockVideo(feed);
+      await wait(540);
+      exit(body);
+      await wait(420); body.remove();
+    }
+
+    async function sceneLaptop() {
+      const body = E('g', { class: 'scene' }, scenesG);
+      E('rect', { class: 'dev', x: 294, y: 144, width: 228, height: 138, rx: 8 }, body);
+      E('rect', { class: 'well', x: 300, y: 150, width: 216, height: 126, rx: 4 }, body);
+      E('path', { class: 'dev-fill', d: 'M 280 282 L 536 282 L 556 302 L 260 302 Z' }, body);
+      E('rect', { class: 'devdot', x: 400, y: 288, width: 16, height: 4, rx: 2 }, body);
+      E('circle', { class: 'devdot', cx: 408, cy: 150, r: 2.4 }, body);
+      const screen = videoFeed('SCREEN');
+      const webcam = videoFeed('WEBCAM');
+      spawn(body, 0, 0, 1); spawn(screen, 300, 150, 1.8);
+      await enter([{ el: body, x: 0, y: 0 }, { el: screen, x: 300, y: 150, s: 1.8 }]);
+      await wait(480);
+      const conn = E('line', { class: 'connector', x1: 408, y1: 150, x2: 470, y2: 132 }, scenesG);
+      conn.style.setProperty('--fc', '#22d3ee'); conn.style.transition = 'none'; conn.style.opacity = 0;
+      webcam.style.transition = 'none'; place(webcam, 440, 118, 0.25, 0);
+      await nextFrame();
+      conn.style.transition = ''; conn.style.opacity = 1;
+      webcam.style.transition = ''; place(webcam, 470, 116, 1, 1);
+      await wait(640);
+      conn.style.opacity = 0;
+      dockVideo(webcam);
+      await wait(360);
+      dockVideo(screen);
+      await wait(480);
+      exit(body); conn.remove();
+      await wait(420); body.remove();
+    }
+
+    async function sceneDesk() {
+      const body = E('g', { class: 'scene' }, scenesG);
+      E('line', { class: 'dev', x1: 250, y1: 332, x2: 612, y2: 332 }, body);
+      // two monitors (feeds scale 1.25 ≈ 150×88)
+      const mons = [[270, 150], [428, 150]];
+      for (const [mx, my] of mons) {
+        E('rect', { class: 'dev', x: mx - 6, y: my - 6, width: 162, height: 100, rx: 6 }, body);
+        E('rect', { class: 'well', x: mx, y: my, width: 150, height: 88, rx: 3 }, body);
+        E('line', { class: 'dev', x1: mx + 75, y1: my + 94, x2: mx + 75, y2: 332 }, body);
+        E('line', { class: 'dev', x1: mx + 58, y1: 332, x2: mx + 92, y2: 332 }, body);
+      }
+      // headset on the desk
+      E('path', { class: 'dev', d: 'M 330 318 A 30 30 0 0 1 392 318' }, body);
+      E('rect', { class: 'dev-fill', x: 324, y: 316, width: 13, height: 22, rx: 5 }, body);
+      E('rect', { class: 'dev-fill', x: 385, y: 316, width: 13, height: 22, rx: 5 }, body);
+      E('path', { class: 'dev', d: 'M 391 332 q 14 4 11 20' }, body);
+      const mon1 = videoFeed('MONITOR 1'), mon2 = videoFeed('MONITOR 2');
+      spawn(body, 0, 0, 1); spawn(mon1, 270, 150, 1.25); spawn(mon2, 428, 150, 1.25);
+      await enter([{ el: body, x: 0, y: 0 }, { el: mon1, x: 270, y: 150, s: 1.25 }, { el: mon2, x: 428, y: 150, s: 1.25 }]);
+      await wait(440);
+      // headphone audio I/O panels expand and dock
+      const hp = audioFeed('HP MIC'), desk = audioFeed('DESKTOP');
+      for (const [f, dx] of [[hp, 250], [desk, 250]]) { f.style.transition = 'none'; place(f, 348, 300, 0.25, 0); }
+      await nextFrame();
+      hp.style.transition = ''; place(hp, 250, 360, 1, 1);
+      await wait(160);
+      desk.style.transition = ''; place(desk, 470, 360, 1, 1);
+      await wait(520);
+      dockAudio(hp); await wait(200); dockAudio(desk);
+      await wait(360);
+      dockVideo(mon1); await wait(260); dockVideo(mon2);
+      await wait(440);
+      exit(body);
+      await wait(420); body.remove();
+    }
+
+    async function sceneKeynote() {
+      const body = E('g', { class: 'scene' }, scenesG);
+      // large screen behind (feed scale 2.6 ≈ 312×182)
+      E('rect', { class: 'dev', x: 280, y: 110, width: 324, height: 194, rx: 8 }, body);
+      E('rect', { class: 'well', x: 286, y: 116, width: 312, height: 182, rx: 4 }, body);
+      // presenter below the screen
+      E('circle', { class: 'dev', cx: 372, cy: 330, r: 16 }, body);
+      E('path', { class: 'dev', d: 'M 344 372 q 28 -34 56 0' }, body);
+      // mic on a stand in front
+      E('line', { class: 'dev', x1: 410, y1: 372, x2: 410, y2: 338 }, body);
+      E('ellipse', { class: 'dev-fill', cx: 410, cy: 332, rx: 6, ry: 9 }, body);
+      // camera on a tripod, filming (feed scale 0.92 ≈ 110×64)
+      E('rect', { class: 'dev', x: 520, y: 300, width: 34, height: 24, rx: 4 }, body);
+      E('circle', { class: 'dev', cx: 537, cy: 312, r: 7 }, body);
+      E('path', { class: 'dev', d: 'M 537 324 L 520 360 M 537 324 L 554 360' }, body);
+      const big = videoFeed('BIG SCREEN'), cam = videoFeed('CAMERA');
+      spawn(body, 0, 0, 1); spawn(big, 286, 116, 2.6); spawn(cam, 506, 250, 0.92);
+      await enter([{ el: body, x: 0, y: 0 }, { el: big, x: 286, y: 116, s: 2.6 }, { el: cam, x: 506, y: 250, s: 0.92 }]);
+      await wait(460);
+      const mic = audioFeed('MIC');
+      mic.style.transition = 'none'; place(mic, 410, 360, 0.25, 0);
+      await nextFrame();
+      mic.style.transition = ''; place(mic, 360, 372, 1, 1);
+      await wait(560);
+      dockAudio(mic);
+      await wait(300);
+      dockVideo(big); await wait(260); dockVideo(cam);
+      await wait(460);
+      exit(body);
+      await wait(420); body.remove();
+    }
+
+    // ---- Final Capture UI mock ----
+    const slotVx = (i) => 52 + (i % 4) * 192;
+    const slotVy = (i) => 115 + Math.floor(i / 4) * 117;
+    const slotAx = (i) => 175 + i * 180;
+
+    function buildCaptureUI() {
+      E('rect', { class: 'panel-bg', x: 12, y: 12, width: 836, height: 34, rx: 8 }, uiG);
+      E('circle', { class: 'ui-dot', cx: 31, cy: 29, r: 4 }, uiG);
+      E('text', { class: 'ui-lbl', x: 44, y: 33 }, uiG, 'CAPTURE');
+      E('rect', { class: 'panel-bg', x: 12, y: 52, width: 836, height: 348, rx: 10 }, uiG);
+      E('rect', { class: 'bar-bg', x: 12, y: 406, width: 836, height: 66, rx: 10 }, uiG);
+      E('text', { class: 'ui-lbl', x: 24, y: 414 + 18 }, uiG, 'AUDIO');
+    }
+
+    async function finale() {
+      buildCaptureUI();
+      spawn(uiG, 0, 0, 1);
+      await enter([{ el: uiG, x: 0, y: 0 }]);
+      await wait(220);
+      for (let i = 0; i < videos.length; i++) {
+        videos[i].classList.remove('peeled');
+        place(videos[i], slotVx(i), slotVy(i), 1.5, 1);
+        await wait(95);
+      }
+      for (let i = 0; i < audios.length; i++) {
+        audios[i].classList.remove('peeled');
+        place(audios[i], slotAx(i), 418, 1, 1);
+        await wait(95);
+      }
+      await wait(520);
+    }
+
+    function revealText() {
+      titleEl.textContent = TITLE; hookEl.textContent = HOOK; actions.classList.add('show');
+    }
+
+    async function run() {
+      titleEl.textContent = ''; hookEl.textContent = '';
+      await scenePhone();
+      await sceneLaptop();
+      await sceneDesk();
+      await sceneKeynote();
+      await finale();
+      await type(titleEl, TITLE, 52);
+      await wait(140);
+      await type(hookEl, HOOK, 18);
+      revealText();
+    }
+
+    function assembleFinal() {
+      svg.classList.add('instant');
+      buildCaptureUI(); place(uiG, 0, 0, 1, 1);
+      ['PHONE','SCREEN','WEBCAM','MONITOR 1','MONITOR 2','BIG SCREEN','CAMERA']
+        .forEach((l, i) => place(videoFeed(l), slotVx(i), slotVy(i), 1.5, 1));
+      ['HP MIC','DESKTOP','MIC'].forEach((l, i) => place(audioFeed(l), slotAx(i), 418, 1, 1));
+      void svg.getBoundingClientRect();
+    }
+
+    if (reduce) {
+      assembleFinal();
+      revealText();
+    } else {
+      run();
+    }
+  </script>
 </body>
 </html>

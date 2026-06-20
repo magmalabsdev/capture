@@ -15,7 +15,8 @@ python3 serve.py            # http://localhost:8000
 
 Then open <http://localhost:8000> in a recent **Chrome or Edge** (best support
 for screen + system-audio capture). Firefox works for camera/mic/screen;
-Safari has limited screen/system-audio support.
+Safari has limited screen/system-audio support. The root page is the landing
+page; the recorder itself lives at <http://localhost:8000/app/>.
 
 Any static host works too (GitHub Pages, Netlify, S3, …) — just serve the folder
 over HTTPS.
@@ -92,7 +93,8 @@ Combined exports are muxed with **ffmpeg.wasm**: the video stream is
 ## Project layout
 
 ```
-index.html              app shell + mount points
+index.html              landing page (hero animation, features, comparison)
+app/index.html          recorder app shell + mount points
 styles/main.css         dark UI theme
 serve.py                static dev server (correct MIME types)
 vendor/ffmpeg/          vendored ffmpeg.wasm (single-thread core, ~32 MB)
