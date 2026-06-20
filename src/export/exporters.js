@@ -20,6 +20,10 @@ function setFF(patch) {
 
 let jobSeq = 0;
 
+// Output frame rate for time-lapse (frames are dropped to this so the encoder
+// isn't forced to process every source frame).
+const TIMELAPSE_FPS = 30;
+
 /* ------------------------------------------------------------------ */
 /* Reassembly from durable storage                                    */
 /* ------------------------------------------------------------------ */
@@ -257,8 +261,11 @@ async function muxVideoWithAudios(videoRes, audioResList, opts = {}, onProgress)
   for (const n of aNames) args.push('-i', n);
 
   // Build the filter graph + maps.
+  // For time-lapse, decimate to a normal output frame rate (fps filter) so the
+  // encoder only processes ~duration*FPS frames instead of every source frame —
+  // without this, setpts keeps all frames and a long clip takes forever.
   const fc = [];
-  if (timelapse) fc.push(`[0:v]setpts=PTS/${speed}[v]`);
+  if (timelapse) fc.push(`[0:v]setpts=PTS/${speed},fps=${TIMELAPSE_FPS}[v]`);
 
   let amap = null;
   if (aNames.length === 1) {
