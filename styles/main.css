@@ -144,6 +144,15 @@ html, body {
   box-shadow: 0 0 10px rgba(255, 93, 108, .6);
 }
 .brand-name { font-size: 15px; }
+/* Brand lockup: Capture banner + by Magma Labs banner */
+.brand-lockup { display: flex; align-items: center; gap: 12px; }
+.brand-home { display: inline-flex; align-items: center; cursor: pointer; background: none; border: 0; padding: 0; }
+.brand-home .cap-banner { height: 38px; width: auto; display: block; }
+.magma-link { display: inline-flex; align-items: center; opacity: .8; transition: opacity .12s ease; }
+.magma-link:hover { opacity: 1; }
+.magma-link .magma-banner { height: 22px; width: auto; display: block; }
+:root[data-theme="dark"] .banner--light { display: none; }
+:root[data-theme="light"] .banner--dark { display: none; }
 .tb-group { display: flex; gap: 6px; align-items: center; }
 .tb-spacer { flex: 1; }
 .view-toggle { margin-left: auto; }

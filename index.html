@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Capture — Multi-Stream Screen &amp; Camera Recorder</title>
   <meta name="description" content="Record every screen, camera, and mic at once — each as its own independent track. Runs in your browser. No install, no account, nothing uploaded." />
+  <link rel="icon" type="image/png" href="media/imgs/Capture%20Logo.png" />
+  <link rel="apple-touch-icon" href="media/imgs/Capture%20Logo.png" />
   <script>
     // Apply saved appearance before paint to avoid a flash of the wrong theme.
     try {
@@ -102,6 +104,18 @@
       width:11px; height:11px; border-radius:50%; background:var(--rec);
       box-shadow:0 0 0 4px color-mix(in srgb, var(--rec) 22%, transparent);
     }
+    /* ---- Brand lockup (Capture banner + by Magma Labs banner) ---- */
+    .brand-lockup { display:flex; align-items:center; gap:15px; }
+    .brand-home { display:inline-flex; align-items:center; cursor:pointer; background:none; border:0; padding:0; }
+    .brand-home .cap-banner { height:48px; width:auto; display:block; }
+    .magma-link { display:inline-flex; align-items:center; opacity:.82; transition:opacity .12s var(--ease); }
+    .magma-link:hover { opacity:1; }
+    .magma-link .magma-banner { height:29px; width:auto; display:block; }
+    .brand-lockup--sm .cap-banner { height:42px; }
+    .brand-lockup--sm .magma-banner { height:26px; }
+    /* Theme-appropriate banner variant */
+    :root[data-theme="dark"] .banner--light { display:none; }
+    :root[data-theme="light"] .banner--dark { display:none; }
     .nav-links { display:flex; align-items:center; gap:26px; }
     .nav-links a.lnk { color:var(--muted); font-size:14px; font-weight:500; transition:color .12s var(--ease); }
     .nav-links a.lnk:hover { color:var(--text); }
@@ -240,7 +254,16 @@
   <!-- ===== Nav ===== -->
   <nav class="nav">
     <div class="wrap nav-inner">
-      <a class="brand" href="#top"><span class="dot"></span>Capture</a>
+      <div class="brand-lockup">
+        <button type="button" class="brand-home" aria-label="Capture — reload page">
+          <img class="cap-banner banner--dark" src="media/imgs/Capture%20Dark%20Banner.png" alt="Capture" />
+          <img class="cap-banner banner--light" src="media/imgs/Capture%20Light%20Banner.png" alt="Capture" />
+        </button>
+        <a class="magma-link" href="https://magmalabs.dev" target="_blank" rel="noopener noreferrer" aria-label="By Magma Labs">
+          <img class="magma-banner banner--dark" src="media/imgs/By%20Magma%20Labs%20Dark.png" alt="By Magma Labs" />
+          <img class="magma-banner banner--light" src="media/imgs/By%20Magma%20Labs%20Light.png" alt="By Magma Labs" />
+        </a>
+      </div>
       <div class="nav-links">
         <a class="lnk" href="#features">Features</a>
         <a class="lnk" href="#compare">Compare</a>
@@ -442,7 +465,16 @@
   <!-- ===== Footer ===== -->
   <footer class="site">
     <div class="wrap foot-inner">
-      <div class="brand" style="font-size:15px;"><span class="dot"></span>Capture <span style="color:var(--muted); font-weight:500;">· by MagmaLabs</span></div>
+      <div class="brand-lockup brand-lockup--sm">
+        <button type="button" class="brand-home" aria-label="Capture — reload page">
+          <img class="cap-banner banner--dark" src="media/imgs/Capture%20Dark%20Banner.png" alt="Capture" />
+          <img class="cap-banner banner--light" src="media/imgs/Capture%20Light%20Banner.png" alt="Capture" />
+        </button>
+        <a class="magma-link" href="https://magmalabs.dev" target="_blank" rel="noopener noreferrer" aria-label="By Magma Labs">
+          <img class="magma-banner banner--dark" src="media/imgs/By%20Magma%20Labs%20Dark.png" alt="By Magma Labs" />
+          <img class="magma-banner banner--light" src="media/imgs/By%20Magma%20Labs%20Light.png" alt="By Magma Labs" />
+        </a>
+      </div>
       <div style="display:flex; gap:22px; align-items:center;">
         <a data-gh><i class="fa-brands fa-github"></i> GitHub</a>
         <a data-app>Open Recorder</a>
@@ -464,6 +496,11 @@
       a.setAttribute('rel', 'noopener');
     }
     document.getElementById('year').textContent = new Date().getFullYear();
+
+    // Capture banner reloads the page.
+    for (const b of document.querySelectorAll('.brand-home')) {
+      b.addEventListener('click', () => location.reload());
+    }
 
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));

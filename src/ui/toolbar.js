@@ -103,9 +103,33 @@ export function createToolbar(root) {
     const anyRecording = allSources().some((x) => x.rec.status === 'recording');
 
     root.replaceChildren(
-      el('div', { class: 'brand' }, [
-        el('span', { class: 'brand-dot' }),
-        el('span', { class: 'brand-name', text: 'Capture' }),
+      el('div', { class: 'brand-lockup' }, [
+        el('button', {
+          type: 'button', class: 'brand-home', title: 'Reload Capture',
+          ariaLabel: 'Capture — reload page', onClick: () => location.reload(),
+        }, [
+          el('img', {
+            class: 'cap-banner banner--dark', alt: 'Capture',
+            src: '../media/imgs/Capture%20Dark%20Banner.png',
+          }),
+          el('img', {
+            class: 'cap-banner banner--light', alt: 'Capture',
+            src: '../media/imgs/Capture%20Light%20Banner.png',
+          }),
+        ]),
+        el('a', {
+          class: 'magma-link', href: 'https://magmalabs.dev',
+          target: '_blank', rel: 'noopener noreferrer', ariaLabel: 'By Magma Labs',
+        }, [
+          el('img', {
+            class: 'magma-banner banner--dark', alt: 'By Magma Labs',
+            src: '../media/imgs/By%20Magma%20Labs%20Dark.png',
+          }),
+          el('img', {
+            class: 'magma-banner banner--light', alt: 'By Magma Labs',
+            src: '../media/imgs/By%20Magma%20Labs%20Light.png',
+          }),
+        ]),
       ]),
 
       el('div', { class: 'tb-group' }, [
