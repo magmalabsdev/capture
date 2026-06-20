@@ -63,6 +63,17 @@
   --ok: #46d39a;
   --warn: #f5b955;
 
+  /* Tinted surfaces (themed) */
+  --meter-bg: #0a0c11;
+  --warn-bg: #1f1a10;
+  --warn-line: #5a4a24;
+  --err-bg: #24121d;
+  --err-line: #5a2438;
+  --ok-line: #1f5a45;
+  --rec-bg: #1f1320;
+  --rec-fg: #ffc3c9;
+  --danger-fg: #ff9aa7;
+
   --radius: 18px;
   --radius-sm: 12px;
   --radius-btn: 6px;
@@ -166,9 +177,9 @@ html, body {
   color: #fff;
 }
 .btn.primary:hover:not(:disabled) { background: var(--accent-500); border-color: var(--accent-300); }
-.btn.rec { color: #ffc3c9; border-color: var(--rec-dim); background: #1f1320; }
+.btn.rec { color: var(--rec-fg); border-color: var(--rec-dim); background: var(--rec-bg); }
 .btn.rec:hover:not(:disabled) { background: #2a1626; border-color: var(--rec); color: #ffd7db; }
-.btn.danger { background: #24121d; border-color: #5a2438; color: #ff9aa7; }
+.btn.danger { background: var(--err-bg); border-color: var(--err-line); color: var(--danger-fg); }
 .btn.danger:hover:not(:disabled) { background: #311826; border-color: var(--rec); }
 .btn.small { padding: 6px 10px; font-size: 12px; border-radius: 5px; }
 .btn.block { width: 100%; margin-top: 10px; justify-content: center; }
@@ -344,7 +355,7 @@ html, body {
 }
 .aud-tile.is-selected { border-color: var(--hi); box-shadow: 0 0 0 1px var(--hi-ring); }
 .aud-tile.is-recording { border-color: var(--rec); }
-.aud-tile.is-paused { border-color: var(--warn); background: #241c1a; }
+.aud-tile.is-paused { border-color: var(--warn); background: var(--warn-bg); }
 .aud-tile.stream-ended { opacity: .55; }
 .aud-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .aud-titles { display: flex; align-items: center; gap: 6px; overflow: hidden; }
@@ -355,7 +366,7 @@ html, body {
 .aud-controls .tbtn { width: 30px; height: 30px; background: var(--panel-3); }
 
 /* meters (solid fill; color flips when hot) */
-.meter { height: 8px; background: #0a0c11; border-radius: 5px; overflow: hidden; border: 1px solid var(--line); }
+.meter { height: 8px; background: var(--meter-bg); border-radius: 5px; overflow: hidden; border: 1px solid var(--line); }
 .meter-sm { height: 8px; flex: 1; }
 .meter-fill { height: 100%; width: 0%; background: var(--ok); transition: width .05s linear, background .1s var(--ease); }
 .meter-fill.hot { background: var(--rec); }
@@ -398,11 +409,11 @@ html, body {
 .check-row.tiny { margin: 5px 0; font-size: 12.5px; }
 
 .ff-status { margin-top: 14px; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--panel-2); }
-.ff-status.error { border-color: #5a2438; background: #24121d; color: #ff9aa7; }
-.ff-status.ready { border-color: #1f5a45; }
+.ff-status.error { border-color: var(--err-line); background: var(--err-bg); color: var(--danger-fg); }
+.ff-status.ready { border-color: var(--ok-line); }
 .ff-msg { font-size: 12.5px; margin-bottom: 8px; }
 .ff-status .ff-msg:only-child { margin-bottom: 0; }
-.progress { height: 8px; background: #0a0c11; border-radius: 5px; overflow: hidden; border: 1px solid var(--line); }
+.progress { height: 8px; background: var(--meter-bg); border-radius: 5px; overflow: hidden; border: 1px solid var(--line); }
 .progress-fill { height: 100%; background: var(--ok); width: 0%; transition: width .2s var(--ease); }
 
 .auto-export { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
@@ -422,8 +433,16 @@ html, body {
 .tl-row .sel-inline { width: auto; flex: 0 0 auto; padding: 7px 8px; }
 .tl-arrow { color: var(--muted); font-weight: 700; }
 
+/* Download location */
+.download-loc { margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.dl-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; }
+.dl-icon { color: var(--muted); }
+.dl-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dl-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.dl-warn { display: flex; align-items: flex-start; gap: 6px; margin: 8px 0; padding: 8px 10px; border-radius: var(--radius-sm); border: 1px solid var(--warn-line); background: var(--warn-bg); color: var(--warn); font-size: 12px; }
+
 /* Crash-recovery banner */
-.recovery { margin-bottom: 16px; padding: 12px; border-radius: var(--radius-sm); border: 1px solid #5a4a24; background: #1f1a10; }
+.recovery { margin-bottom: 16px; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--warn-line); background: var(--warn-bg); }
 .recovery-head { display: flex; align-items: center; gap: 8px; color: var(--warn); font-size: 13px; margin-bottom: 4px; }
 .recovery .export-item { margin-top: 8px; background: var(--panel-2); }
 .recovery-actions { display: flex; gap: 6px; }
@@ -442,8 +461,8 @@ html, body {
   z-index: 200; opacity: 0; transition: opacity .2s var(--ease), transform .2s var(--ease); max-width: 70vw; font-size: 13px;
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-.toast.warn { border-color: #5a4a24; color: var(--warn); }
-.toast.error { border-color: #5a2438; color: #ff9aa7; }
+.toast.warn { border-color: var(--warn-line); color: var(--warn); }
+.toast.error { border-color: var(--err-line); color: var(--danger-fg); }
 
 /* scrollbars */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -454,3 +473,104 @@ html, body {
 @media (max-width: 1100px) {
   :root { --left-w: 230px; --right-w: 240px; }
 }
+
+/* ---------------- Light theme ---------------- */
+:root[data-theme="light"] {
+  --bg: #f7f8fc;
+  --bg-2: #eef1f7;
+  --panel: #ffffff;
+  --panel-2: #f3f5fa;
+  --panel-3: #e7ebf3;
+  --line: #dde3ec;
+  --line-soft: #eaeef4;
+  --text: #0f172a;
+  --muted: #5b6577;
+
+  --hi: #475569;
+  --hi-ring: rgba(71, 85, 105, 0.26);
+
+  --rec: #e11d48;
+  --rec-dim: #f3b6c2;
+  --ok: #059669;
+  --warn: #b45309;
+
+  --meter-bg: #e6eaf1;
+  --warn-bg: #fff7ed;
+  --warn-line: #f3d7af;
+  --err-bg: #fef2f2;
+  --err-line: #f6cccc;
+  --ok-line: #a7f3d0;
+  --rec-bg: #fdeaec;
+  --rec-fg: #be123c;
+  --danger-fg: #b91c1c;
+}
+
+/* Video tiles stay dark in both themes (video reads best on black). */
+
+/* ---------------- High contrast ---------------- */
+/* Invert controls (buttons + inputs) to the text color so they stand out
+   maximally from the page background, in either theme. */
+:root[data-contrast="high"] .btn,
+:root[data-contrast="high"] .seg,
+:root[data-contrast="high"] .tbtn,
+:root[data-contrast="high"] .menu-item,
+:root[data-contrast="high"] .text-input,
+:root[data-contrast="high"] .select,
+:root[data-contrast="high"] .input-num {
+  background: var(--text);
+  color: var(--bg);
+  border-color: var(--text);
+}
+:root[data-contrast="high"] .btn:hover:not(:disabled),
+:root[data-contrast="high"] .seg:hover:not(.active):not(:disabled),
+:root[data-contrast="high"] .tbtn:hover:not(:disabled),
+:root[data-contrast="high"] .menu-item:hover {
+  background: var(--muted);
+  color: var(--bg);
+  border-color: var(--muted);
+}
+:root[data-contrast="high"] .btn.primary,
+:root[data-contrast="high"] .seg.active {
+  background: var(--text);
+  color: var(--bg);
+  border-color: var(--text);
+}
+:root[data-contrast="high"] .text-input::placeholder,
+:root[data-contrast="high"] .input-num::placeholder { color: var(--bg); opacity: 0.7; }
+:root[data-contrast="high"] .check-row input { accent-color: var(--text); }
+/* Media-control buttons live on black video tiles → keep them white-on-black. */
+:root[data-contrast="high"] .tbtn { background: #fff; color: #000; border-color: #fff; }
+:root[data-contrast="high"] .tbtn:hover:not(:disabled) { background: #cbd5e1; border-color: #cbd5e1; }
+:root[data-contrast="high"] .tile.is-selected,
+:root[data-contrast="high"] .aud-tile.is-selected { border-color: var(--text); box-shadow: 0 0 0 2px var(--text); }
+
+/* ---------------- Settings modal ---------------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+  padding: 20px;
+}
+.modal {
+  width: min(440px, 100%);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.modal-head .panel-title { margin: 0; }
+.modal-body { padding: 16px; display: grid; gap: 4px; }
+.modal-body .segmented { width: fit-content; }

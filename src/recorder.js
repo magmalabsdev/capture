@@ -136,6 +136,7 @@ function beginSegment(source, baseMs) {
     source.rec.bytes += e.data.size;
     source.rec.hasData = true;
     source._lastDataAt = performance.now();
+    source._stallProbed = false; // re-arm the stall watchdog's flush probe
     if (source.stalled) {
       source.stalled = false;
       update();

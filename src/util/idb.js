@@ -10,7 +10,7 @@
 //   recordings : keyPath sourceId; metadata for export + crash recovery
 
 const DB_NAME = 'capture-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbPromise = null;
 
@@ -34,6 +34,9 @@ export function openDB() {
       }
       if (!db.objectStoreNames.contains('recordings')) {
         db.createObjectStore('recordings', { keyPath: 'sourceId' });
+      }
+      if (!db.objectStoreNames.contains('kv')) {
+        db.createObjectStore('kv'); // out-of-line keys (e.g. download dir handle)
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -150,6 +153,24 @@ export async function deleteRecording(sourceId) {
     };
     cursorReq.onerror = () => reject(cursorReq.error);
   });
+  await txDone(t);
+}
+
+/* Generic key-value (used for the chosen download directory handle). */
+export async function kvGet(key) {
+  const db = await openDB();
+  return reqDone(tx(db, 'kv', 'readonly').objectStore('kv').get(key));
+}
+export async function kvPut(key, value) {
+  const db = await openDB();
+  const t = tx(db, 'kv', 'readwrite');
+  t.objectStore('kv').put(value, key);
+  await txDone(t);
+}
+export async function kvDelete(key) {
+  const db = await openDB();
+  const t = tx(db, 'kv', 'readwrite');
+  t.objectStore('kv').delete(key);
   await txDone(t);
 }
 

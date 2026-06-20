@@ -5,7 +5,7 @@ import { state, update, notify } from './state.js';
 import { rollSegment } from './recorder.js';
 
 const SEGMENT_MS = 5 * 60 * 1000; // auto-roll a fresh segment every 5 min
-const STALL_MS = 8000; // no data for this long while "recording" → stalled
+const STALL_MS = 12000; // no data for this long while "recording" → suspect stall
 
 function segmentElapsed(source) {
   const r = source.rec;
@@ -14,6 +14,13 @@ function segmentElapsed(source) {
 }
 
 const allSources = () => [...state.videoSources, ...state.audioSources];
+
+function liveTrack(source) {
+  const stream = source.stream;
+  if (!stream) return null;
+  const tracks = source.mediaKind === 'video' ? stream.getVideoTracks() : stream.getAudioTracks();
+  return tracks[0] || null;
+}
 
 export function startRecordWatch() {
   // Auto-roll long segments so no single MediaRecorder run / chunk array grows
@@ -26,14 +33,40 @@ export function startRecordWatch() {
     }
   }, 5000);
 
-  // Stall watchdog — catches the "desktop audio silently died" case.
+  // A backgrounded tab legitimately delivers MediaRecorder data in delayed
+  // bursts, so the time-based heuristic only runs while visible. Real drops are
+  // caught accurately by the track 'mute'/'ended' handlers (sources.js)
+  // regardless of visibility. On returning to the foreground, give a grace
+  // period so the accumulated hidden gap isn't mistaken for a stall.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      const now = performance.now();
+      for (const s of allSources()) if (s.rec.status === 'recording') s._lastDataAt = now;
+    }
+  });
+
+  // Stall watchdog — catches a track that silently stops producing data.
   setInterval(() => {
+    if (document.visibilityState !== 'visible') return; // delivery is bursty when hidden
     const now = performance.now();
     let changed = false;
     for (const s of allSources()) {
-      if (s.rec.status !== 'recording') continue;
+      if (s.rec.status !== 'recording' || s.stalled) continue;
       const since = now - (s._lastDataAt || now);
-      if (since > STALL_MS && !s.stalled) {
+      if (since <= STALL_MS) continue;
+
+      // First over-threshold sighting: force a flush and wait one more tick to
+      // distinguish "buffered but delayed" from a genuine stall.
+      if (!s._stallProbed) {
+        s._stallProbed = true;
+        try { s._mr && s._mr.requestData(); } catch { /* ignore */ }
+        continue;
+      }
+
+      // Still no data — only flag if the track itself looks unhealthy.
+      const track = liveTrack(s);
+      const unhealthy = !track || track.muted || track.readyState !== 'live';
+      if (unhealthy) {
         s.stalled = true;
         changed = true;
         notify(`${s.label} stopped producing data — it may be muted or disconnected.`, 'warn', { sound: true });

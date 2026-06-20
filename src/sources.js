@@ -5,6 +5,7 @@ import { uid } from './util/dom.js';
 import { freshRec, stopRecording, continueRecording } from './recorder.js';
 import { attachMeter, detachMeter, getAudioContext } from './audioMeter.js';
 import { deleteRecording } from './util/idb.js';
+import { getSourcePrefs } from './settings.js';
 
 /* ------------------------------------------------------------------ */
 /* Devices                                                            */
@@ -35,6 +36,36 @@ export async function refreshDevices() {
 
 function trackSettings(track) {
   return track && track.getSettings ? track.getSettings() : {};
+}
+
+/** Restore saved preferences (label/bitrate/mirror/targets/time-lapse) in-memory. */
+function applyStoredPrefs(source) {
+  const p = getSourcePrefs(source);
+  if (!p) return;
+  if (typeof p.label === 'string' && p.label) source.label = p.label;
+  if (typeof p.bitrate === 'number') source.bitrate = p.bitrate;
+  if (source.mediaKind === 'video') {
+    if (typeof p.mirror === 'boolean') source.mirror = p.mirror;
+    if (p.targetW) source.targetW = p.targetW;
+    if (p.targetH) source.targetH = p.targetH;
+    if (p.targetFps) source.targetFps = p.targetFps;
+    if (p.timelapse) source.timelapse = { ...source.timelapse, ...p.timelapse };
+  }
+}
+
+/** Re-apply saved hardware constraints (resolution/fps, mic processing) async. */
+function restoreHardware(source) {
+  const p = getSourcePrefs(source);
+  if (!p) return;
+  if (source.mediaKind === 'video' && (p.targetW || p.targetFps)) {
+    applyVideoConstraints(source, { width: p.targetW, height: p.targetH, frameRate: p.targetFps }).catch(() => {});
+  } else if (source.mediaKind === 'audio' && p.audio) {
+    const a = {};
+    for (const k of ['echoCancellation', 'noiseSuppression', 'autoGainControl']) {
+      if (typeof p.audio[k] === 'boolean') a[k] = p.audio[k];
+    }
+    if (Object.keys(a).length) applyAudioConstraints(source, a).catch(() => {});
+  }
 }
 
 /** Wire ended/mute/unmute listeners so drops and silences are surfaced. */
@@ -82,6 +113,7 @@ function registerVideoSource({ stream, kind, label, deviceId }) {
     stalled: false,
     rec: freshRec(),
   };
+  applyStoredPrefs(source);
   attachTrackListeners(source, track);
   update((s) => {
     s.videoSources.push(source);
@@ -89,6 +121,7 @@ function registerVideoSource({ stream, kind, label, deviceId }) {
     if (!s.speakerMainId) s.speakerMainId = source.id;
   });
   refreshDevices();
+  restoreHardware(source);
   return source;
 }
 
@@ -108,6 +141,7 @@ function registerAudioSource({ stream, kind, label, deviceId }) {
     stalled: false,
     rec: freshRec(),
   };
+  applyStoredPrefs(source);
   attachMeter(source);
   attachTrackListeners(source, track);
   update((s) => {
@@ -115,6 +149,7 @@ function registerAudioSource({ stream, kind, label, deviceId }) {
     if (!s.selectedId) s.selectedId = source.id;
   });
   refreshDevices();
+  restoreHardware(source);
   return source;
 }
 

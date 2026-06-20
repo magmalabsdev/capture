@@ -160,6 +160,13 @@ export function createToolbar(root) {
           class: `seg ${s.view === 'speaker' ? 'active' : ''}`,
           html: `${fa('user-large')}<span>Speaker</span>`, onClick: () => update((st) => { st.view = 'speaker'; }),
         }),
+      ]),
+
+      el('div', { class: 'tb-group' }, [
+        el('button', {
+          class: 'btn', title: 'Settings', html: fa('gear'),
+          onClick: () => update((st) => { st.settingsOpen = true; }),
+        }),
       ])
     );
   }

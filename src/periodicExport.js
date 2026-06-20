@@ -6,7 +6,8 @@ import { state, update, notify } from './state.js';
 import { rollSegment } from './recorder.js';
 import { makeZip } from './util/zip.js';
 import { safeName } from './util/format.js';
-import { downloadBlob, audioToMp3 } from './export/exporters.js';
+import { audioToMp3 } from './export/exporters.js';
+import { saveFile } from './download.js';
 
 let timer = null;
 let inProgress = false;
@@ -81,7 +82,7 @@ async function runTick() {
       const zip = await makeZip(files);
       const idx = state.periodic.count + 1;
       const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-      downloadBlob(zip, `capture-clip-${String(idx).padStart(3, '0')}-${stamp}.zip`);
+      await saveFile(zip, `capture-clip-${String(idx).padStart(3, '0')}-${stamp}.zip`);
       update((s) => {
         s.periodic.count = idx;
         s.periodic.lastRunAt = Date.now();

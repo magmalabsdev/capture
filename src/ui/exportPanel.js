@@ -8,13 +8,18 @@ import {
   exportAll,
   singleExport,
   mergeExport,
-  downloadBlob,
   audioToMp3,
   hasRecording,
   getRecordingBlob,
   exportRecovered,
   discardRecovered,
 } from '../export/exporters.js';
+import {
+  saveFile,
+  chooseDownloadDir,
+  useBrowserDownloads,
+  reconnectDownloadDir,
+} from '../download.js';
 
 export function createExportPanel(root) {
   function recordedVideos(s) {
@@ -56,6 +61,16 @@ export function createExportPanel(root) {
     }
   }
 
+  // Like runExport but ignores the picker being cancelled.
+  async function safeAction(fn) {
+    try {
+      await fn();
+    } catch (e) {
+      if (e && e.name === 'AbortError') return;
+      notify(e.message || 'Action failed.', 'error');
+    }
+  }
+
   async function downloadOne(src, btn) {
     try {
       if (btn) { btn.disabled = true; btn.textContent = 'Preparing…'; }
@@ -64,9 +79,9 @@ export function createExportPanel(root) {
       if (src.mediaKind === 'audio') {
         if (btn) btn.textContent = 'Converting…';
         const mp3 = await audioToMp3(res.blob, res.ext);
-        downloadBlob(mp3, `${safeName(src.label)}.mp3`);
+        await saveFile(mp3, `${safeName(src.label)}.mp3`);
       } else {
-        downloadBlob(res.blob, `${safeName(src.label)}.${res.ext}`);
+        await saveFile(res.blob, `${safeName(src.label)}.${res.ext}`);
       }
       if (res.partial) notify(`${src.label}: some footage was unreadable and skipped.`, 'warn');
     } catch (e) {
@@ -81,6 +96,8 @@ export function createExportPanel(root) {
     root.appendChild(el('h2', { class: 'panel-title', text: 'Export' }));
 
     if (s.recovery && s.recovery.length) root.appendChild(renderRecovery(s));
+
+    root.appendChild(renderDownloadLocation(s));
 
     const vids = recordedVideos(s);
     const auds = recordedAudios(s);
@@ -157,6 +174,59 @@ export function createExportPanel(root) {
         ])
       );
     }
+    return wrap;
+  }
+
+  function renderDownloadLocation(s) {
+    const d = s.download;
+    const wrap = el('div', { class: 'download-loc' });
+    wrap.appendChild(el('h3', { class: 'sub-title', text: 'Download location' }));
+
+    if (!d.supported) {
+      wrap.appendChild(
+        el('p', { class: 'muted tiny' },
+          'Choosing a folder needs Chrome or Edge — files go to your browser’s Downloads.')
+      );
+      return wrap;
+    }
+
+    wrap.appendChild(
+      el('div', { class: 'dl-row' }, [
+        el('span', { class: 'dl-icon', html: fa(d.mode === 'folder' ? 'folder' : 'download') }),
+        el('span', { class: 'dl-name', text: d.mode === 'folder' ? d.name : 'Browser downloads' }),
+      ])
+    );
+
+    if (d.mode === 'folder' && d.needsReconnect) {
+      wrap.appendChild(
+        el('button', {
+          class: 'btn small', html: `${fa('rotate-right')}<span>Reconnect folder</span>`,
+          onClick: () => safeAction(reconnectDownloadDir),
+        })
+      );
+    }
+    if (d.mode === 'folder' && !d.available) {
+      wrap.appendChild(
+        el('p', { class: 'dl-warn' }, [
+          el('span', { html: fa('triangle-exclamation') }),
+          el('span', { text: ` “${d.name}” is unavailable — drive removed? Exports fall back to browser downloads.` }),
+        ])
+      );
+    }
+
+    const actions = el('div', { class: 'dl-actions' }, [
+      el('button', {
+        class: 'btn small',
+        html: `${fa('folder-open')}<span>${d.mode === 'folder' ? 'Change folder' : 'Choose folder'}</span>`,
+        onClick: () => safeAction(chooseDownloadDir),
+      }),
+    ]);
+    if (d.mode === 'folder') {
+      actions.appendChild(
+        el('button', { class: 'btn small', text: 'Use browser downloads', onClick: () => safeAction(useBrowserDownloads) })
+      );
+    }
+    wrap.appendChild(actions);
     return wrap;
   }
 

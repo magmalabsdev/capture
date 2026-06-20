@@ -6,11 +6,15 @@ import { SESSION_ID } from './recorder.js';
 import { startRecordWatch } from './recordWatch.js';
 import { listRecordings } from './util/idb.js';
 import { armAudio, playWarning } from './sound.js';
+import { configurePeriodic } from './periodicExport.js';
+import { getGlobal, setGlobal, persistSources } from './settings.js';
+import { initDownload } from './download.js';
 import { createToolbar } from './ui/toolbar.js';
 import { createVideoStage } from './ui/videoStage.js';
 import { createAudioBar } from './ui/audioBar.js';
 import { createInspector } from './ui/inspector.js';
 import { createExportPanel } from './ui/exportPanel.js';
+import { createSettingsPanel } from './ui/settingsPanel.js';
 import { initResizers } from './ui/resizers.js';
 
 function checkSupport() {
@@ -47,30 +51,72 @@ function setupToast() {
   });
 }
 
+function restoreGlobalSettings() {
+  const g = getGlobal();
+  if (g.view === 'grid' || g.view === 'speaker') state.view = g.view;
+  if (['single', 'all', 'merge'].includes(g.exportMode)) state.exportMode = g.exportMode;
+  if (g.periodicIntervalSec) state.periodic.intervalSec = g.periodicIntervalSec;
+  if (g.periodicEnabled) state.periodic.enabled = true;
+  if (g.theme === 'light' || g.theme === 'dark') state.theme = g.theme;
+  if (g.contrast === 'high' || g.contrast === 'normal') state.contrast = g.contrast;
+}
+
+function applyAppearance(s) {
+  const el = document.documentElement;
+  const theme = s.theme === 'light' ? 'light' : 'dark';
+  const contrast = s.contrast === 'high' ? 'high' : 'normal';
+  if (el.dataset.theme !== theme) el.dataset.theme = theme;
+  if (el.dataset.contrast !== contrast) el.dataset.contrast = contrast;
+}
+
 function main() {
   if (!checkSupport()) return;
+
+  restoreGlobalSettings();
+  applyAppearance(state);
 
   const toolbar = createToolbar(document.getElementById('toolbar'));
   const stage = createVideoStage(document.getElementById('stage'));
   const audioBar = createAudioBar(document.getElementById('audiobar'));
   const inspector = createInspector(document.getElementById('inspector'));
   const exportPanel = createExportPanel(document.getElementById('export'));
+  const settingsPanel = createSettingsPanel(document.getElementById('settings'));
 
   setupToast();
   armAudio(); // enable warning sounds (unlocks on first interaction)
   initResizers();
   startRecordWatch();
   scanForRecovery();
+  initDownload();
 
   const renderAll = (s) => {
+    applyAppearance(s);
     toolbar.render(s);
     stage.render(s);
     audioBar.render(s);
     inspector.render(s);
     exportPanel.render(s);
+    settingsPanel.render(s);
   };
   subscribe(renderAll);
+
+  // Persist session settings on any change (writes are de-duped in settings.js).
+  subscribe((s) => {
+    setGlobal({
+      view: s.view,
+      exportMode: s.exportMode,
+      periodicEnabled: s.periodic.enabled,
+      periodicIntervalSec: s.periodic.intervalSec,
+      theme: s.theme,
+      contrast: s.contrast,
+    });
+    persistSources([...s.videoSources, ...s.audioSources]);
+  });
+
   renderAll(state);
+
+  // Resume auto-export timer if it was enabled last session.
+  if (state.periodic.enabled) configurePeriodic({});
 
   // Timers: text/status (cheap) every 250ms.
   setInterval(() => {

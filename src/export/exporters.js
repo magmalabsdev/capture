@@ -4,22 +4,13 @@
 // (with a precise warning) instead of failing the whole export.
 
 import { state, update, notify } from '../state.js';
-import { el } from '../util/dom.js';
 import { safeName, extFromMime } from '../util/format.js';
 import { makeZip } from '../util/zip.js';
 import { getSegmentsBlobs, idbAvailable, deleteRecording } from '../util/idb.js';
 import { getFFmpeg } from './ffmpeg.js';
+import { saveFile } from '../download.js';
 
 const blobBytes = async (blob) => new Uint8Array(await blob.arrayBuffer());
-
-export function downloadBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = el('a', { href: url, download: filename });
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
-}
 
 export const hasRecording = (s) => !!(s.rec && s.rec.hasData);
 
@@ -132,7 +123,7 @@ export async function exportRecovered(meta) {
   setFF({ status: 'running', progress: 0, message: `Recovering ${pseudo.label}…` });
   try {
     const res = await resolveRecording(pseudo, (p) => setFF({ progress: p }));
-    downloadBlob(res.blob, `${safeName(pseudo.label)}-recovered.${res.ext}`);
+    await saveFile(res.blob, `${safeName(pseudo.label)}-recovered.${res.ext}`);
     setFF({
       status: res.partial ? 'error' : 'ready',
       progress: 1,
@@ -204,7 +195,7 @@ export async function exportAll() {
     setFF({ status: 'running', progress: 1, message: 'Packaging zip…' });
     const zip = await makeZip(files);
     const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-    downloadBlob(zip, `capture-${stamp}.zip`);
+    await saveFile(zip, `capture-${stamp}.zip`);
 
     finishNotice(`Exported ${files.length} track${files.length === 1 ? '' : 's'}`, failed, partialAny);
   } catch (e) {
@@ -383,7 +374,7 @@ export async function singleExport() {
     setFF({ progress: 0, message: speed !== 1 ? 'Time-lapsing + muxing…' : 'Muxing video + audio…' });
     const out = await muxVideoWithAudios(videoRes, audioResList, { speed }, (p) => setFF({ progress: p }));
     const suffix = speed !== 1 ? 'timelapse' : 'mixed';
-    downloadBlob(out.blob, `${safeName(video.label)}-${suffix}.${out.ext}`);
+    await saveFile(out.blob, `${safeName(video.label)}-${suffix}.${out.ext}`);
     finishNotice('Exported combined file', failed, videoRes.partial);
   } catch (e) {
     setFF({ status: 'error', message: e.message || String(e) });
@@ -443,12 +434,12 @@ export async function mergeExport() {
     if (!files.length) throw new Error('No videos could be read for merge.');
 
     if (files.length === 1) {
-      downloadBlob(files[0].blob, files[0].name);
+      await saveFile(files[0].blob, files[0].name);
     } else {
       setFF({ progress: 1, message: 'Packaging zip…' });
       const zip = await makeZip(files);
       const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-      downloadBlob(zip, `capture-merged-${stamp}.zip`);
+      await saveFile(zip, `capture-merged-${stamp}.zip`);
     }
     finishNotice(`Merged ${files.length} file${files.length === 1 ? '' : 's'}`, failed, partialAny);
   } catch (e) {

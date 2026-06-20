@@ -14,6 +14,11 @@ export const state = {
   speakerMainId: null,
   selectedId: null,
 
+  // Appearance
+  theme: 'dark', // 'dark' | 'light'
+  contrast: 'normal', // 'normal' | 'high'
+  settingsOpen: false,
+
   exportMode: 'all', // 'single' | 'all' | 'merge'
   mergeAssignments: {}, // videoId -> [audioId, ...]
 
@@ -26,6 +31,9 @@ export const state = {
 
   // Recordings left in IndexedDB by a previous/crashed session (crash recovery).
   recovery: [],
+
+  // Download destination (File System Access API where supported).
+  download: { supported: false, mode: 'browser', name: '', available: true, needsReconnect: false },
 
   notice: null, // { message, type, ts }
 };
