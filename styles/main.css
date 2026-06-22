@@ -130,7 +130,7 @@ html, body {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 10px 16px;
+  padding: 15px 16px;
   background: var(--bg-2);
   border-bottom: 1px solid var(--line);
   flex-wrap: wrap;
@@ -146,8 +146,19 @@ html, body {
 .brand-name { font-size: 15px; }
 /* Brand lockup: Capture banner + by Magma Labs banner */
 .brand-lockup { display: flex; align-items: center; gap: 12px; }
+.brand-col { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
 .brand-home { display: inline-flex; align-items: center; cursor: pointer; background: none; border: 0; padding: 0; }
 .brand-home .cap-banner { height: 38px; width: auto; display: block; }
+.app-version {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  align-self: stretch;
+  text-align: right;
+}
+.app-version:empty { display: none; }
 .magma-link { display: inline-flex; align-items: center; opacity: .8; transition: opacity .12s ease; }
 .magma-link:hover { opacity: 1; }
 .magma-link .magma-banner { height: 22px; width: auto; display: block; }

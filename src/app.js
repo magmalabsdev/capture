@@ -9,6 +9,7 @@ import { armAudio, playWarning } from './sound.js';
 import { configurePeriodic } from './periodicExport.js';
 import { getGlobal, setGlobal, persistSources } from './settings.js';
 import { initDownload } from './download.js';
+import { getVersion } from './version.js';
 import { createToolbar } from './ui/toolbar.js';
 import { createVideoStage } from './ui/videoStage.js';
 import { createAudioBar } from './ui/audioBar.js';
@@ -88,6 +89,11 @@ function main() {
   startRecordWatch();
   scanForRecovery();
   initDownload();
+
+  // Resolve the app version (YY.MM.COMMIT) from the repo history, then show it.
+  getVersion().then((v) => {
+    if (v) update((s) => { s.version = v; });
+  });
 
   const renderAll = (s) => {
     applyAppearance(s);

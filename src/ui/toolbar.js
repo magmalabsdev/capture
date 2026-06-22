@@ -104,17 +104,24 @@ export function createToolbar(root) {
 
     root.replaceChildren(
       el('div', { class: 'brand-lockup' }, [
-        el('button', {
-          type: 'button', class: 'brand-home', title: 'Reload Capture',
-          ariaLabel: 'Capture — reload page', onClick: () => location.reload(),
-        }, [
-          el('img', {
-            class: 'cap-banner banner--dark', alt: 'Capture',
-            src: '../media/imgs/Capture%20Dark%20Banner.png',
-          }),
-          el('img', {
-            class: 'cap-banner banner--light', alt: 'Capture',
-            src: '../media/imgs/Capture%20Light%20Banner.png',
+        el('div', { class: 'brand-col' }, [
+          el('button', {
+            type: 'button', class: 'brand-home', title: 'Reload Capture',
+            ariaLabel: 'Capture — reload page', onClick: () => location.reload(),
+          }, [
+            el('img', {
+              class: 'cap-banner banner--dark', alt: 'Capture',
+              src: '../media/imgs/Capture%20Dark%20Banner.png',
+            }),
+            el('img', {
+              class: 'cap-banner banner--light', alt: 'Capture',
+              src: '../media/imgs/Capture%20Light%20Banner.png',
+            }),
+          ]),
+          el('span', {
+            class: 'app-version',
+            title: 'Version (year.month.commit-of-month)',
+            text: s.version ? `v${s.version}` : '',
           }),
         ]),
         el('a', {

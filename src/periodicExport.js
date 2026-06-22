@@ -6,7 +6,7 @@ import { state, update, notify } from './state.js';
 import { rollSegment } from './recorder.js';
 import { makeZip } from './util/zip.js';
 import { safeName } from './util/format.js';
-import { audioToMp3 } from './export/exporters.js';
+import { audioToMp3OrOriginal, exportableVideo } from './export/exporters.js';
 import { saveFile } from './download.js';
 
 let timer = null;
@@ -71,10 +71,11 @@ async function runTick() {
       const clip = await rollSegment(src);
       if (!clip || !clip.blob.size) continue;
       if (src.mediaKind === 'audio') {
-        const mp3 = await audioToMp3(clip.blob, clip.ext);
-        files.push({ name: nameFor(src.label, 'mp3'), blob: mp3 });
+        const a = await audioToMp3OrOriginal(clip.blob, clip.ext);
+        files.push({ name: nameFor(src.label, a.ext), blob: a.blob });
       } else {
-        files.push({ name: nameFor(src.label, clip.ext), blob: clip.blob });
+        const v = await exportableVideo({ blob: clip.blob, ext: clip.ext });
+        files.push({ name: nameFor(src.label, v.ext), blob: v.blob });
       }
     }
 

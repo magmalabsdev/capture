@@ -8,7 +8,8 @@ import {
   exportAll,
   singleExport,
   mergeExport,
-  audioToMp3,
+  audioToMp3OrOriginal,
+  exportableVideo,
   hasRecording,
   getRecordingBlob,
   exportRecovered,
@@ -78,10 +79,12 @@ export function createExportPanel(root) {
       if (!res || !res.blob.size) throw new Error('No readable data for this track.');
       if (src.mediaKind === 'audio') {
         if (btn) btn.textContent = 'Converting…';
-        const mp3 = await audioToMp3(res.blob, res.ext);
-        await saveFile(mp3, `${safeName(src.label)}.mp3`);
+        const a = await audioToMp3OrOriginal(res.blob, res.ext);
+        await saveFile(a.blob, `${safeName(src.label)}.${a.ext}`);
       } else {
-        await saveFile(res.blob, `${safeName(src.label)}.${res.ext}`);
+        if (btn) btn.textContent = 'Repackaging…';
+        const v = await exportableVideo(res);
+        await saveFile(v.blob, `${safeName(src.label)}.${v.ext}`);
       }
       if (res.partial) notify(`${src.label}: some footage was unreadable and skipped.`, 'warn');
     } catch (e) {

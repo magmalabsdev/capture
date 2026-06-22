@@ -7,7 +7,7 @@ import { state, update, notify } from '../state.js';
 import { safeName, extFromMime } from '../util/format.js';
 import { makeZip } from '../util/zip.js';
 import { getSegmentsBlobs, idbAvailable, deleteRecording } from '../util/idb.js';
-import { getFFmpeg } from './ffmpeg.js';
+import { getFFmpeg, runExec } from './ffmpeg.js';
 import { saveFile } from '../download.js';
 
 const blobBytes = async (blob) => new Uint8Array(await blob.arrayBuffer());
@@ -69,7 +69,7 @@ async function concatSegments(segBlobs, ext, onProgress) {
   const out = `${job}_out.${ext}`;
   let data;
   try {
-    await ff.exec(['-y', '-f', 'concat', '-safe', '0', '-i', listName, '-c', 'copy', out]);
+    await runExec(ff, ['-y', '-f', 'concat', '-safe', '0', '-i', listName, '-c', 'copy', out]);
     data = await ff.readFile(out);
   } finally {
     for (const f of [...names, listName, out]) {
@@ -177,8 +177,8 @@ export async function exportAll() {
         const res = await resolveRecording(src, (p) => setFF({ progress: p }));
         partialAny = partialAny || res.partial;
         if (src.mediaKind === 'audio') {
-          const mp3 = await audioToMp3(res.blob, res.ext, (p) => setFF({ progress: p }));
-          files.push({ name: nameFor(src.label, 'mp3'), blob: mp3 });
+          const a = await audioToMp3OrOriginal(res.blob, res.ext, (p) => setFF({ progress: p }));
+          files.push({ name: nameFor(src.label, a.ext), blob: a.blob });
         } else {
           const speed = timelapseSpeed(src);
           if (speed !== 1) {
@@ -186,7 +186,9 @@ export async function exportAll() {
             const out = await muxVideoWithAudios(res, [], { speed }, (p) => setFF({ progress: p }));
             files.push({ name: nameFor(src.label, out.ext), blob: out.blob });
           } else {
-            files.push({ name: nameFor(src.label, res.ext), blob: res.blob });
+            setFF({ progress: 0, message: `Repackaging ${src.label}…` });
+            const out = await exportableVideo(res, (p) => setFF({ progress: p }));
+            files.push({ name: nameFor(src.label, out.ext), blob: out.blob });
           }
         }
       } catch (e) {
@@ -292,11 +294,14 @@ async function muxVideoWithAudios(videoRes, audioResList, opts = {}, onProgress)
   if (timelapse) args.push('-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p');
   else args.push('-c:v', 'copy');
   if (amap) args.push('-c:a', audioCodec);
+  // Flatten to a faststart (moov-at-front) MP4 so editors like DaVinci Resolve
+  // accept it — MediaRecorder's native output is a fragmented MP4 they reject.
+  if (outExt === 'mp4') args.push('-movflags', '+faststart');
   args.push(out);
 
   let data;
   try {
-    await ff.exec(args);
+    await runExec(ff, args);
     data = await ff.readFile(out);
   } finally {
     for (const f of [vName, ...aNames, out]) {
@@ -342,7 +347,7 @@ export async function audioToMp3(blob, ext, onProgress) {
   await ff.writeFile(inName, await blobBytes(blob));
   let data;
   try {
-    await ff.exec(['-y', '-i', inName, '-vn', '-c:a', 'libmp3lame', '-q:a', '2', outName]);
+    await runExec(ff, ['-y', '-i', inName, '-vn', '-c:a', 'libmp3lame', '-q:a', '2', outName]);
     data = await ff.readFile(outName);
   } finally {
     for (const f of [inName, outName]) {
@@ -353,7 +358,75 @@ export async function audioToMp3(blob, ext, onProgress) {
       }
     }
   }
+  if (!data || !data.length) throw new Error('MP3 conversion produced no output.');
   return new Blob([data], { type: 'audio/mpeg' });
+}
+
+/**
+ * Convert audio to MP3, but never let a stuck/failed ffmpeg leave the audio
+ * un-exportable: on any failure, fall back to the original recording (the same
+ * container crash-recovery hands back). Returns { blob, ext }.
+ */
+export async function audioToMp3OrOriginal(blob, ext, onProgress) {
+  try {
+    const mp3 = await audioToMp3(blob, ext, onProgress);
+    return { blob: mp3, ext: 'mp3' };
+  } catch (e) {
+    notify(
+      `Couldn't convert audio to MP3 (${e.message || e}); exporting the original .${ext} instead.`,
+      'warn'
+    );
+    return { blob, ext };
+  }
+}
+
+/**
+ * Remux a recorded video into an editor-friendly container WITHOUT re-encoding.
+ * MediaRecorder emits a fragmented MP4 (moof/mfra boxes) that DaVinci Resolve
+ * and many NLEs refuse to import; this rewrites it to a flat, faststart MP4
+ * (moov at the front). WebM is likewise rebuilt so it carries a real duration
+ * and a seek index. All streams (incl. any embedded audio) are copied through.
+ * @returns {Promise<{ blob: Blob, ext: string }>}
+ */
+async function normalizeVideo(videoRes, onProgress) {
+  const ff = await getFFmpeg(onProgress);
+  const ext = videoRes.ext;
+  const job = `n${jobSeq++}`;
+  const inName = `${job}_in.${ext}`;
+  const outName = `${job}_out.${ext}`;
+  await ff.writeFile(inName, await blobBytes(videoRes.blob));
+  const args = ['-y', '-i', inName, '-map', '0', '-c', 'copy'];
+  if (ext === 'mp4') args.push('-movflags', '+faststart');
+  args.push(outName);
+  let data;
+  try {
+    await runExec(ff, args);
+    data = await ff.readFile(outName);
+  } finally {
+    for (const f of [inName, outName]) {
+      try {
+        await ff.deleteFile(f);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  if (!data || !data.length) throw new Error('Video remux produced no output.');
+  const mime = ext === 'mp4' ? 'video/mp4' : 'video/webm';
+  return { blob: new Blob([data], { type: mime }), ext };
+}
+
+/** Normalize a video for export; on any ffmpeg failure, fall back to the raw recording. */
+export async function exportableVideo(videoRes, onProgress) {
+  try {
+    return await normalizeVideo(videoRes, onProgress);
+  } catch (e) {
+    notify(
+      `Couldn't repackage video (${e.message || e}); exporting the raw recording, which some editors may not import.`,
+      'warn'
+    );
+    return { blob: videoRes.blob, ext: videoRes.ext };
+  }
 }
 
 /* ------------------------------------------------------------------ */

@@ -36,6 +36,9 @@ export const state = {
   download: { supported: false, mode: 'browser', name: '', available: true, needsReconnect: false },
 
   notice: null, // { message, type, ts }
+
+  // App version (YY.MM.COMMIT), computed from the repo's commit history.
+  version: '',
 };
 
 const listeners = new Set();
