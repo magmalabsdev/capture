@@ -4,7 +4,10 @@
 // no "audio output permission" API, so we "request" playback by unlocking on the
 // first interaction with the page and priming the element.
 
-const SOUND_URL = 'media/sounds/warning.mp3';
+// Resolve relative to THIS module (/src/sound.js), not document.baseURI — the
+// app is served from /app/ but media/ lives at the site root, so a page-relative
+// path 404s and the sound never plays.
+const SOUND_URL = new URL('../media/sounds/warning.mp3', import.meta.url).href;
 
 let audio = null;
 let unlocked = false;
