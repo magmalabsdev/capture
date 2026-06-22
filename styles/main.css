@@ -408,6 +408,16 @@ html, body {
 .check-row { display: flex; align-items: center; gap: 8px; margin: 8px 0; cursor: pointer; font-size: 13px; }
 .check-row input { accent-color: var(--hi); width: 15px; height: 15px; }
 
+/* Speaker-view hotkey control */
+.hotkey-row { display: flex; align-items: center; gap: 8px; }
+.hotkey-btn {
+  flex: 1; justify-content: center; min-width: 0; font-family: var(--font-mono);
+  letter-spacing: 0.04em; background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
+}
+.hotkey-btn:hover { border-color: var(--panel-3); background: var(--panel-3); }
+.hotkey-btn.listening { border-color: var(--hi); box-shadow: 0 0 0 3px var(--hi-ring); color: var(--muted); }
+.hotkey-clear { flex: 0 0 auto; padding: 6px 9px; }
+
 .stats { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 4px 12px; }
 .stat-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
 .stat-row:last-child { border-bottom: 0; }

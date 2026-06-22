@@ -14,6 +14,7 @@ import {
   recaptureSource,
   removeSource,
 } from '../sources.js';
+import { bindingFromEvent, hotkeyLabel, sameBinding } from '../util/hotkey.js';
 
 /** Human-readable status including drop/mute/stall/error flags. */
 export function statusText(source) {
@@ -240,7 +241,61 @@ export function createInspector(root) {
       el('label', { class: 'check-row' }, [mirror, el('span', { text: 'Mirror preview' })])
     );
 
+    renderHotkey(source);
     renderTimelapse(source);
+  }
+
+  // Speaker-view hotkey: a button that captures the next chord, plus a clear (×).
+  function renderHotkey(source) {
+    const btn = el('button', { type: 'button', class: 'btn small hotkey-btn' });
+    const setIdle = () => {
+      btn.classList.remove('listening');
+      btn.textContent = source.hotkey ? hotkeyLabel(source.hotkey) : 'Set hotkey…';
+    };
+
+    const onKey = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === 'Escape') { stop(); return; }
+      const binding = bindingFromEvent(e);
+      if (!binding) return; // wait for a non-modifier key
+      stop();
+      update(() => {
+        // A chord maps to one stream only — clear it from any other.
+        for (const v of state.videoSources) {
+          if (v !== source && sameBinding(v.hotkey, binding)) v.hotkey = null;
+        }
+        source.hotkey = binding;
+      });
+    };
+    const stop = () => {
+      document.body.removeAttribute('data-hotkey-capture');
+      document.removeEventListener('keydown', onKey, true);
+      setIdle();
+    };
+    btn.onclick = () => {
+      if (btn.classList.contains('listening')) { stop(); return; }
+      btn.classList.add('listening');
+      btn.textContent = 'Press a key…';
+      document.body.dataset.hotkeyCapture = '1';
+      document.addEventListener('keydown', onKey, true);
+    };
+    setIdle();
+
+    const row = el('div', { class: 'hotkey-row' }, [btn]);
+    if (source.hotkey) {
+      row.appendChild(
+        el('button', {
+          type: 'button', class: 'btn small ghost hotkey-clear', title: 'Clear hotkey',
+          html: fa('xmark'),
+          onClick: () => update(() => { source.hotkey = null; }),
+        })
+      );
+    }
+    root.appendChild(field('Speaker hotkey', row));
+    root.appendChild(
+      el('p', { class: 'muted tiny' }, 'Press this key anywhere to jump this stream into speaker view.')
+    );
   }
 
   function renderTimelapse(source) {

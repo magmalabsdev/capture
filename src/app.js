@@ -10,6 +10,7 @@ import { configurePeriodic } from './periodicExport.js';
 import { getGlobal, setGlobal, persistSources } from './settings.js';
 import { initDownload } from './download.js';
 import { getVersion } from './version.js';
+import { hotkeyMatches } from './util/hotkey.js';
 import { createToolbar } from './ui/toolbar.js';
 import { createVideoStage } from './ui/videoStage.js';
 import { createAudioBar } from './ui/audioBar.js';
@@ -158,6 +159,18 @@ function main() {
       /* IDB unavailable — skip recovery */
     }
   }
+
+  // Per-stream speaker hotkeys: jump a video into speaker view from anywhere.
+  window.addEventListener('keydown', (e) => {
+    if (e.repeat) return;
+    const t = e.target;
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    if (document.body.dataset.hotkeyCapture) return; // a hotkey is being recorded
+    const match = state.videoSources.find((s) => hotkeyMatches(s.hotkey, e));
+    if (!match) return;
+    e.preventDefault();
+    update((s) => { s.speakerMainId = match.id; s.view = 'speaker'; });
+  });
 
   // Warn before leaving with an active recording.
   window.addEventListener('beforeunload', (e) => {

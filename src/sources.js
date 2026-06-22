@@ -50,6 +50,7 @@ function applyStoredPrefs(source) {
     if (p.targetH) source.targetH = p.targetH;
     if (p.targetFps) source.targetFps = p.targetFps;
     if (p.timelapse) source.timelapse = { ...source.timelapse, ...p.timelapse };
+    if (p.hotkey && typeof p.hotkey === 'object') source.hotkey = p.hotkey;
   }
 }
 
@@ -108,6 +109,8 @@ function registerVideoSource({ stream, kind, label, deviceId }) {
       toVal: 1, toUnit: 'min',
       targetVal: 30, targetUnit: 'sec',
     },
+    // Keyboard shortcut that jumps this stream into speaker view (null = none).
+    hotkey: null,
     streamEnded: false,
     muted: false,
     stalled: false,
@@ -369,13 +372,41 @@ export async function applyVideoConstraints(source, { width, height, frameRate }
 }
 
 export async function applyAudioConstraints(source, constraints) {
-  const track = source.stream.getAudioTracks()[0];
-  if (!track) return;
-  try {
-    await track.applyConstraints(constraints);
-  } catch {
-    /* not all browsers honor these */
+  if (busy(source)) return;
+  // echoCancellation / noiseSuppression / autoGainControl cannot be toggled on a
+  // live MediaStreamTrack — applyConstraints is a silent no-op in Chrome (a plain
+  // boolean is ignored and `{ exact }` throws), so the checkbox would just snap
+  // back. Re-acquire the mic with the new processing flags and swap the fresh
+  // track into the stream instead.
+  const cur = source.settings || {};
+  const audio = {};
+  for (const k of ['echoCancellation', 'noiseSuppression', 'autoGainControl']) {
+    const v = k in constraints ? constraints[k] : cur[k];
+    if (typeof v === 'boolean') audio[k] = v;
   }
+  if (source.deviceId) audio.deviceId = { exact: source.deviceId };
+
+  // The old track must be released BEFORE re-acquiring: Chrome shares audio
+  // processing across live captures of the same device, so a still-open track
+  // would force the new one to inherit its old settings (the toggle wouldn't
+  // take). setAudioDevice can acquire-then-stop because it switches devices.
+  detachMeter(source);
+  source.stream.getTracks().forEach((t) => t.stop());
+
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio, video: false });
+  } catch {
+    notify('Could not change that audio processing setting; the microphone was lost.', 'error', { sound: true });
+    source.streamEnded = true;
+    update();
+    return;
+  }
+
+  source.stream = stream;
+  const track = stream.getAudioTracks()[0];
   source.settings = trackSettings(track);
+  attachMeter(source);
+  track.addEventListener('ended', () => onTrackEnded(source));
   update();
 }

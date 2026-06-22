@@ -58,6 +58,7 @@ function snapshot(source) {
     p.targetH = source.targetH;
     p.targetFps = source.targetFps;
     p.timelapse = source.timelapse;
+    p.hotkey = source.hotkey;
   } else {
     const s = source.settings || {};
     p.audio = {

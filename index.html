@@ -136,7 +136,11 @@
       width:min(880px,100%); aspect-ratio:16/9; margin:0 auto clamp(34px,5vw,52px);
       display:block; background:var(--bg-2); border:1px solid var(--line);
       border-radius:var(--radius); overflow:hidden;
+      transition:width .9s var(--ease), margin-bottom .9s var(--ease);
     }
+    /* Once the app UI has assembled, the stage shrinks — its 16/9 box collapses
+       so the "Capture" title below rises toward the vertical centre. */
+    .scene-stage.shrunk { width:min(480px,86%); margin-bottom:clamp(22px,3vw,32px); }
     :root[data-theme="light"] .scene-stage { background:#eef1f7; }
 
     /* JS-animated SVG groups (transform-driven slide / peel / assemble) */
@@ -147,7 +151,7 @@
       transition:transform .45s var(--ease), opacity .35s var(--ease);
       transform-box:fill-box; transform-origin:0 0;
     }
-    .scene-stage.instant * { transition:none !important; }
+    .scene-stage.instant, .scene-stage.instant * { transition:none !important; }
 
     /* device line-art */
     .dev      { fill:none; stroke:var(--muted); stroke-width:2; stroke-linejoin:round; }
@@ -168,6 +172,15 @@
     .feed .wv    { fill:var(--fc,#46d39a); }
     .feed.peeled { filter:drop-shadow(0 9px 16px rgba(0,0,0,.5)); }
     .connector   { stroke:var(--fc,#8a65d6); stroke-width:1.5; stroke-dasharray:3 3; }
+
+    /* isometric device art (flat-shaded: top lightest, front mid, side darkest) */
+    .iso-top    { fill:color-mix(in srgb, var(--panel) 84%, white); stroke:var(--line); stroke-width:1; stroke-linejoin:round; }
+    .iso-front  { fill:color-mix(in srgb, var(--panel) 96%, black); stroke:var(--line); stroke-width:1; stroke-linejoin:round; }
+    .iso-side   { fill:color-mix(in srgb, var(--panel) 80%, black); stroke:var(--line); stroke-width:1; stroke-linejoin:round; }
+    .iso-screen { fill:#06080c; stroke:var(--line); stroke-width:1; stroke-linejoin:round; }
+    :root[data-theme="light"] .iso-screen { fill:#dde3ec; }
+    .iso-acc    { stroke:var(--line); stroke-width:1; stroke-linejoin:round; }
+    .iso-line   { fill:none; stroke:var(--muted); stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
 
     /* final Capture UI mock */
     #captureUI .panel-bg { fill:var(--panel); stroke:var(--line); stroke-width:1.5; }
@@ -275,8 +288,6 @@
 
   <!-- ===== Hero ===== -->
   <header class="hero wrap" id="top">
-    <div class="hero-pill"><span class="live"></span>Browser-based · nothing uploaded</div>
-
     <svg class="scene-stage" id="stage" viewBox="0 0 860 484" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
       <g id="captureUI"></g>
       <g id="scenes"></g>
@@ -554,12 +565,61 @@
       el.style.transform = `translate(${x}px,${y}px)` + (s !== 1 ? ` scale(${s})` : '');
       el.style.opacity = o;
     };
+    // Resolve an item's target transform: a raw string (it.t) or translate+scale.
+    const toT = (it) => it.t ?? (`translate(${it.x}px,${it.y}px)` + ((it.s ?? 1) !== 1 ? ` scale(${it.s})` : ''));
     const spawn = (el, x, y, s = 1) => { el.style.transition = 'none'; place(el, x + OFF_R, y, s, 0); };
+    // Spawn a feed off to the right while already wearing its on-device transform.
+    const spawnT = (el, t) => { el.style.transition = 'none'; el.style.transform = `translate(${OFF_R}px,0) ${t}`; el.style.opacity = 0; };
     const enter = async (items) => {
       await nextFrame();
-      for (const it of items) { it.el.style.transition = ''; place(it.el, it.x, it.y, it.s ?? 1, 1); }
+      for (const it of items) { it.el.style.transition = ''; it.el.style.transform = toT(it); it.el.style.opacity = it.o ?? 1; }
     };
     const exit = (el) => place(el, -740, 0, 1, 0);
+
+    /* ---- isometric helpers (30° projection, flat-shaded) ----
+       World coords: x → screen right-down, y → screen left-down, z → up. */
+    // s/dx/dy let a scene scale + nudge itself (set per scene); screens face right.
+    const ISO = { ox: 430, oy: 286, ax: Math.cos(Math.PI / 6), ay: Math.sin(Math.PI / 6), s: 1, dx: 0, dy: 0 };
+    const isoPt = (x, y, z = 0) => [
+      ISO.ox + ISO.dx + (y - x) * ISO.ax * ISO.s,
+      ISO.oy + ISO.dy + ((x + y) * ISO.ay - z) * ISO.s,
+    ];
+    const poly = (pts, cls, parent) =>
+      E('polygon', { class: cls, points: pts.map((p) => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ') }, parent);
+    // A box occupying world [x..x+w] × [y..y+d] × [z..z+h]; draws top + front(+y) + side(+x).
+    function isoBox(parent, x, y, z, w, d, h, cls = {}) {
+      const P = isoPt;
+      poly([P(x, y, z + h), P(x + w, y, z + h), P(x + w, y + d, z + h), P(x, y + d, z + h)], cls.top || 'iso-top', parent);
+      poly([P(x, y + d, z), P(x + w, y + d, z), P(x + w, y + d, z + h), P(x, y + d, z + h)], cls.front || 'iso-front', parent);
+      poly([P(x + w, y, z), P(x + w, y + d, z), P(x + w, y + d, z + h), P(x + w, y, z + h)], cls.side || 'iso-side', parent);
+    }
+    // Flat-shaded coloured cube (decorations / accents).
+    function accBox(parent, x, y, z, w, d, h, color) {
+      const P = isoPt;
+      const f = (pts, mix) => { poly(pts, 'iso-acc', parent).style.fill = mix; };
+      f([P(x, y, z + h), P(x + w, y, z + h), P(x + w, y + d, z + h), P(x, y + d, z + h)], `color-mix(in srgb, ${color} 82%, white)`);
+      f([P(x, y + d, z), P(x + w, y + d, z), P(x + w, y + d, z + h), P(x, y + d, z + h)], color);
+      f([P(x + w, y, z), P(x + w, y + d, z), P(x + w, y + d, z + h), P(x + w, y, z + h)], `color-mix(in srgb, ${color} 70%, black)`);
+    }
+    // Dark "glass" inset on a box's front(+y) face.
+    function isoScreenFace(parent, x, y, z, w, h, inset = 4) {
+      const P = isoPt;
+      poly([P(x + inset, y, z + h - inset), P(x + w - inset, y, z + h - inset),
+        P(x + w - inset, y, z + inset), P(x + inset, y, z + inset)], 'iso-screen', parent);
+    }
+    // CSS matrix mapping a feed's local W×H rect onto a front(+y) screen face.
+    // Screen spans world x..x+sw (across) and zTop down to zTop-sh (height).
+    function feedFaceMatrix(x, y, zTop, sw, sh, W, H) {
+      // Screens face right: map the feed's left edge to the screen's visual-left
+      // corner (world x+sw) so the content stays upright, not mirrored.
+      const tl = isoPt(x + sw, y, zTop), tr = isoPt(x, y, zTop), bl = isoPt(x + sw, y, zTop - sh);
+      const ux = tr[0] - tl[0], uy = tr[1] - tl[1], vx = bl[0] - tl[0], vy = bl[1] - tl[1];
+      return `matrix(${(ux / W).toFixed(4)},${(uy / W).toFixed(4)},${(vx / H).toFixed(4)},${(vy / H).toFixed(4)},${tl[0].toFixed(2)},${tl[1].toFixed(2)})`;
+    }
+    // Convenience: a four-leg table/desk under a top slab.
+    function isoLegs(parent, x, y, z, w, d, legW, legH) {
+      for (const lx of [x, x + w - legW]) for (const ly of [y, y + d - legW]) isoBox(parent, lx, ly, z, legW, legW, legH);
+    }
 
     function videoFeed(label) {
       const g = E('g', { class: 'feed' }, dockG);
@@ -590,15 +650,18 @@
     function dockVideo(el) { el.classList.add('peeled'); place(el, dockVx(videos.length), dockVy, 1); videos.push(el); }
     function dockAudio(el) { el.classList.add('peeled'); place(el, dockAx(audios.length), dockAy, 1); audios.push(el); }
 
-    // ---- Scenes ----
+    // ---- Scenes (isometric, flat-shaded) ----
     async function scenePhone() {
+      ISO.s = 1; ISO.dx = 0; ISO.dy = 0;
       const body = E('g', { class: 'scene' }, scenesG);
-      E('rect', { class: 'dev-fill', x: 352, y: 189, width: 156, height: 102, rx: 18 }, body);
-      E('rect', { class: 'well', x: 366, y: 201, width: 128, height: 78, rx: 10 }, body);
-      E('circle', { class: 'devdot', cx: 361, cy: 240, r: 2.6 }, body);
+      isoBox(body, -18, -18, 0, 36, 36, 6);              // stand foot
+      isoBox(body, -44, -7, 6, 88, 14, 152);             // phone slab (wide x, thin y, tall z)
+      isoScreenFace(body, -44, 7, 6, 88, 152, 9);        // front glass (plane y=7)
+      accBox(body, 0, 7, 150, 5, 0.5, 5, '#3b82f6');     // earpiece accent
       const feed = videoFeed('PHONE');
-      spawn(body, 0, 0, 1); spawn(feed, 370, 205, 1);
-      await enter([{ el: body, x: 0, y: 0 }, { el: feed, x: 370, y: 205 }]);
+      const m = feedFaceMatrix(-37, 7, 150, 74, 138, VW, VH);
+      spawn(body, 0, 0, 1); spawnT(feed, m);
+      await enter([{ el: body, x: 0, y: 0 }, { el: feed, t: m }]);
       await wait(760);
       dockVideo(feed);
       await wait(540);
@@ -607,23 +670,27 @@
     }
 
     async function sceneLaptop() {
+      ISO.s = 1; ISO.dx = 0; ISO.dy = 0;
       const body = E('g', { class: 'scene' }, scenesG);
-      E('rect', { class: 'dev', x: 294, y: 144, width: 228, height: 138, rx: 8 }, body);
-      E('rect', { class: 'well', x: 300, y: 150, width: 216, height: 126, rx: 4 }, body);
-      E('path', { class: 'dev-fill', d: 'M 280 282 L 536 282 L 556 302 L 260 302 Z' }, body);
-      E('rect', { class: 'devdot', x: 400, y: 288, width: 16, height: 4, rx: 2 }, body);
-      E('circle', { class: 'devdot', cx: 408, cy: 150, r: 2.4 }, body);
+      isoBox(body, -82, -54, 0, 164, 108, 8);            // base deck
+      poly([isoPt(-66, -36, 8), isoPt(64, -36, 8), isoPt(64, 46, 8), isoPt(-66, 46, 8)], 'iso-screen', body); // keys
+      isoBox(body, -82, -54, 8, 164, 9, 100);            // lid
+      isoScreenFace(body, -82, -45, 8, 164, 100, 9);     // lid glass (plane y=-45)
+      accBox(body, -3, -47, 100, 6, 3, 6, '#22d3ee');    // webcam nub
       const screen = videoFeed('SCREEN');
       const webcam = videoFeed('WEBCAM');
-      spawn(body, 0, 0, 1); spawn(screen, 300, 150, 1.8);
-      await enter([{ el: body, x: 0, y: 0 }, { el: screen, x: 300, y: 150, s: 1.8 }]);
+      const m = feedFaceMatrix(-74, -45, 100, 148, 84, VW, VH);
+      spawn(body, 0, 0, 1); spawnT(screen, m);
+      await enter([{ el: body, x: 0, y: 0 }, { el: screen, t: m }]);
       await wait(480);
-      const conn = E('line', { class: 'connector', x1: 408, y1: 150, x2: 470, y2: 132 }, scenesG);
+      const a = isoPt(-3, -47, 108);                 // webcam nub on the lid
+      const wx = a[0] + 78, wy = a[1] - 36;
+      const conn = E('line', { class: 'connector', x1: a[0], y1: a[1], x2: wx + 8, y2: wy + 26 }, scenesG);
       conn.style.setProperty('--fc', '#22d3ee'); conn.style.transition = 'none'; conn.style.opacity = 0;
-      webcam.style.transition = 'none'; place(webcam, 440, 118, 0.25, 0);
+      webcam.style.transition = 'none'; place(webcam, wx, wy + 12, 0.25, 0);
       await nextFrame();
       conn.style.transition = ''; conn.style.opacity = 1;
-      webcam.style.transition = ''; place(webcam, 470, 116, 1, 1);
+      webcam.style.transition = ''; place(webcam, wx, wy, 1, 1);
       await wait(640);
       conn.style.opacity = 0;
       dockVideo(webcam);
@@ -635,32 +702,58 @@
     }
 
     async function sceneDesk() {
+      ISO.s = 0.84; ISO.dx = 0; ISO.dy = 8;              // scale down so it clears the dock
       const body = E('g', { class: 'scene' }, scenesG);
-      E('line', { class: 'dev', x1: 250, y1: 332, x2: 612, y2: 332 }, body);
-      // two monitors (feeds scale 1.25 ≈ 150×88)
-      const mons = [[270, 150], [428, 150]];
-      for (const [mx, my] of mons) {
-        E('rect', { class: 'dev', x: mx - 6, y: my - 6, width: 162, height: 100, rx: 6 }, body);
-        E('rect', { class: 'well', x: mx, y: my, width: 150, height: 88, rx: 3 }, body);
-        E('line', { class: 'dev', x1: mx + 75, y1: my + 94, x2: mx + 75, y2: 332 }, body);
-        E('line', { class: 'dev', x1: mx + 58, y1: 332, x2: mx + 92, y2: 332 }, body);
+      const DT = 76;                                     // desk surface height (top z)
+      isoBox(body, -170, -62, DT - 7, 340, 134, 7);      // desk top
+      isoLegs(body, -162, -56, 0, 324, 122, 11, DT - 7); // four legs
+      // two monitors on stands
+      const monW = 96, monH = 52, neck = 14, mY = -54, mD = 11, zTop = DT + neck + monH;
+      for (const mx of [-150, -28]) {
+        isoBox(body, mx + monW / 2 - 19, mY + mD - 1, DT, 38, 19, 3); // foot plate (front, visible)
+        isoBox(body, mx + monW / 2 - 6, mY + 5, DT + 3, 12, 6, neck);  // neck (behind screen)
+        isoBox(body, mx, mY, DT + neck, monW, mD, monH);              // body
+        isoScreenFace(body, mx, mY + mD, DT + neck, monW, monH, 5);   // glass
       }
-      // headset on the desk
-      E('path', { class: 'dev', d: 'M 330 318 A 30 30 0 0 1 392 318' }, body);
-      E('rect', { class: 'dev-fill', x: 324, y: 316, width: 13, height: 22, rx: 5 }, body);
-      E('rect', { class: 'dev-fill', x: 385, y: 316, width: 13, height: 22, rx: 5 }, body);
-      E('path', { class: 'dev', d: 'M 391 332 q 14 4 11 20' }, body);
+      // laptop on the right
+      isoBox(body, 78, -10, DT, 64, 50, 5);
+      isoBox(body, 78, -10, DT + 5, 64, 7, 38);
+      isoScreenFace(body, 78, -3, DT + 5, 64, 38, 5);
+      // keyboard + mouse
+      isoBox(body, -118, 26, DT, 150, 40, 6);
+      poly([isoPt(-110, 32, DT + 6), isoPt(24, 32, DT + 6), isoPt(24, 60, DT + 6), isoPt(-110, 60, DT + 6)], 'iso-screen', body);
+      isoBox(body, 46, 32, DT, 22, 30, 7);               // mouse
+      // headphones on a stand (left)
+      isoBox(body, -150, 22, DT, 11, 11, 56);            // post
+      isoBox(body, -156, 14, DT, 23, 27, 5);             // post base
+      const hcA = isoPt(-146, 26, DT + 54), hcB = isoPt(-146, 50, DT + 54);
+      E('path', { class: 'iso-line', d: `M ${hcA[0].toFixed(1)} ${hcA[1].toFixed(1)} Q ${((hcA[0] + hcB[0]) / 2 - 8).toFixed(1)} ${(Math.min(hcA[1], hcB[1]) - 24).toFixed(1)} ${hcB[0].toFixed(1)} ${hcB[1].toFixed(1)}` }, body);
+      accBox(body, -151, 22, DT + 30, 11, 12, 22, '#46d39a');  // ear cup A
+      accBox(body, -151, 46, DT + 30, 11, 12, 22, '#46d39a');  // ear cup B
+      // desk decorations
+      accBox(body, 118, -52, DT, 12, 12, 22, '#a78bfa');   // astronaut figure
+      accBox(body, 118, -52, DT + 22, 12, 12, 10, '#ded6f8'); // helmet
+      accBox(body, -156, -54, DT, 28, 16, 14, '#22d3ee');  // neon gamepad light
+      accBox(body, 28, -54, DT, 46, 12, 16, '#f5b955');    // nixie clock
+      // office chair (front)
+      isoBox(body, -66, 94, 50, 98, 58, 12);             // seat
+      isoBox(body, -66, 142, 62, 98, 9, 88);             // backrest
+      isoBox(body, -26, 116, 0, 14, 14, 50);             // gas post
+      isoBox(body, -54, 118, 0, 72, 10, 7);              // base bar
+      isoBox(body, -24, 92, 0, 10, 64, 7);               // base bar
       const mon1 = videoFeed('MONITOR 1'), mon2 = videoFeed('MONITOR 2');
-      spawn(body, 0, 0, 1); spawn(mon1, 270, 150, 1.25); spawn(mon2, 428, 150, 1.25);
-      await enter([{ el: body, x: 0, y: 0 }, { el: mon1, x: 270, y: 150, s: 1.25 }, { el: mon2, x: 428, y: 150, s: 1.25 }]);
+      const m1 = feedFaceMatrix(-145, mY + mD, zTop - 3, monW - 10, monH - 7, VW, VH);
+      const m2 = feedFaceMatrix(-23, mY + mD, zTop - 3, monW - 10, monH - 7, VW, VH);
+      spawn(body, 0, 0, 1); spawnT(mon1, m1); spawnT(mon2, m2);
+      await enter([{ el: body, x: 0, y: 0 }, { el: mon1, t: m1 }, { el: mon2, t: m2 }]);
       await wait(440);
-      // headphone audio I/O panels expand and dock
       const hp = audioFeed('HP MIC'), desk = audioFeed('DESKTOP');
-      for (const [f, dx] of [[hp, 250], [desk, 250]]) { f.style.transition = 'none'; place(f, 348, 300, 0.25, 0); }
+      hp.style.transition = 'none'; place(hp, 300, 392, 0.25, 0);
+      desk.style.transition = 'none'; place(desk, 300, 392, 0.25, 0);
       await nextFrame();
-      hp.style.transition = ''; place(hp, 250, 360, 1, 1);
+      hp.style.transition = ''; place(hp, 232, 388, 1, 1);
       await wait(160);
-      desk.style.transition = ''; place(desk, 470, 360, 1, 1);
+      desk.style.transition = ''; place(desk, 470, 388, 1, 1);
       await wait(520);
       dockAudio(hp); await wait(200); dockAudio(desk);
       await wait(360);
@@ -671,28 +764,36 @@
     }
 
     async function sceneKeynote() {
+      ISO.s = 0.84; ISO.dx = 0; ISO.dy = 4;              // scale down so it clears the dock
       const body = E('g', { class: 'scene' }, scenesG);
-      // large screen behind (feed scale 2.6 ≈ 312×182)
-      E('rect', { class: 'dev', x: 280, y: 110, width: 324, height: 194, rx: 8 }, body);
-      E('rect', { class: 'well', x: 286, y: 116, width: 312, height: 182, rx: 4 }, body);
-      // presenter below the screen
-      E('circle', { class: 'dev', cx: 372, cy: 330, r: 16 }, body);
-      E('path', { class: 'dev', d: 'M 344 372 q 28 -34 56 0' }, body);
-      // mic on a stand in front
-      E('line', { class: 'dev', x1: 410, y1: 372, x2: 410, y2: 338 }, body);
-      E('ellipse', { class: 'dev-fill', cx: 410, cy: 332, rx: 6, ry: 9 }, body);
-      // camera on a tripod, filming (feed scale 0.92 ≈ 110×64)
-      E('rect', { class: 'dev', x: 520, y: 300, width: 34, height: 24, rx: 4 }, body);
-      E('circle', { class: 'dev', cx: 537, cy: 312, r: 7 }, body);
-      E('path', { class: 'dev', d: 'M 537 324 L 520 360 M 537 324 L 554 360' }, body);
+      // large standing screen on a stand
+      isoBox(body, -150, -42, 10, 300, 12, 150);         // screen body
+      isoScreenFace(body, -150, -30, 10, 300, 150, 9);   // glass (plane y=-30)
+      isoBox(body, -18, -36, 0, 36, 22, 10);             // stand foot
+      isoBox(body, -8, -32, 10, 16, 10, 24);             // stand neck
+      // presenter (body + head) front-right
+      isoBox(body, 74, 78, 0, 30, 26, 56);
+      accBox(body, 78, 82, 56, 22, 18, 22, '#b6a5ee');
+      // mic on a stand
+      isoBox(body, 66, 116, 0, 7, 7, 58);
+      accBox(body, 62, 112, 58, 15, 15, 16, '#34d399');
+      // camera on a tripod, front-left
+      isoBox(body, -132, 100, 46, 40, 26, 26);
+      isoScreenFace(body, -132, 126, 46, 40, 26, 4);
+      const ct = isoPt(-112, 113, 46);
+      const f1 = isoPt(-132, 100, 0), f2 = isoPt(-92, 100, 0), f3 = isoPt(-112, 126, 0);
+      E('path', { class: 'iso-line', d: `M ${ct[0].toFixed(1)} ${ct[1].toFixed(1)} L ${f1[0].toFixed(1)} ${f1[1].toFixed(1)} M ${ct[0].toFixed(1)} ${ct[1].toFixed(1)} L ${f2[0].toFixed(1)} ${f2[1].toFixed(1)} M ${ct[0].toFixed(1)} ${ct[1].toFixed(1)} L ${f3[0].toFixed(1)} ${f3[1].toFixed(1)}` }, body);
       const big = videoFeed('BIG SCREEN'), cam = videoFeed('CAMERA');
-      spawn(body, 0, 0, 1); spawn(big, 286, 116, 2.6); spawn(cam, 506, 250, 0.92);
-      await enter([{ el: body, x: 0, y: 0 }, { el: big, x: 286, y: 116, s: 2.6 }, { el: cam, x: 506, y: 250, s: 0.92 }]);
+      const mBig = feedFaceMatrix(-142, -30, 152, 284, 134, VW, VH);
+      const camTop = isoPt(-112, 113, 80);              // pop the CAMERA feed by the camera
+      const cx = camTop[0] - 96, cy = camTop[1] - 64;
+      spawn(body, 0, 0, 1); spawnT(big, mBig); spawn(cam, cx, cy, 0.92);
+      await enter([{ el: body, x: 0, y: 0 }, { el: big, t: mBig }, { el: cam, x: cx, y: cy, s: 0.92 }]);
       await wait(460);
       const mic = audioFeed('MIC');
-      mic.style.transition = 'none'; place(mic, 410, 360, 0.25, 0);
+      mic.style.transition = 'none'; place(mic, 420, 392, 0.25, 0);
       await nextFrame();
-      mic.style.transition = ''; place(mic, 360, 372, 1, 1);
+      mic.style.transition = ''; place(mic, 360, 388, 1, 1);
       await wait(560);
       dockAudio(mic);
       await wait(300);
@@ -745,6 +846,8 @@
       await sceneDesk();
       await sceneKeynote();
       await finale();
+      svg.classList.add('shrunk');   // collapse the canvas so the title rises to centre
+      await wait(620);
       await type(titleEl, TITLE, 52);
       await wait(140);
       await type(hookEl, HOOK, 18);
@@ -752,7 +855,7 @@
     }
 
     function assembleFinal() {
-      svg.classList.add('instant');
+      svg.classList.add('instant', 'shrunk');
       buildCaptureUI(); place(uiG, 0, 0, 1, 1);
       ['PHONE','SCREEN','WEBCAM','MONITOR 1','MONITOR 2','BIG SCREEN','CAMERA']
         .forEach((l, i) => place(videoFeed(l), slotVx(i), slotVy(i), 1.5, 1));
