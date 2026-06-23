@@ -52,6 +52,10 @@ async function computeVersion() {
  * simply hide the label rather than show a broken value.
  */
 export async function getVersion() {
+  // Baked in at build time (desktop app) — avoids any network dependency.
+  if (typeof globalThis !== 'undefined' && globalThis.__CAPTURE_VERSION__) {
+    return globalThis.__CAPTURE_VERSION__;
+  }
   try {
     const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
     if (cached && cached.v && Date.now() - cached.at < CACHE_TTL_MS) return cached.v;

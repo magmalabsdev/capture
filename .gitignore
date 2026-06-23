@@ -1,0 +1,4 @@
+node_modules/
+dist/
+electron/build-version.json
+.DS_Store

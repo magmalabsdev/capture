@@ -13,8 +13,10 @@ import {
   applyAudioConstraints,
   recaptureSource,
   removeSource,
+  assignHotkey,
 } from '../sources.js';
 import { bindingFromEvent, hotkeyLabel, sameBinding } from '../util/hotkey.js';
+import { confirmAction, confirmRemoveSource } from './confirm.js';
 
 /** Human-readable status including drop/mute/stall/error flags. */
 export function statusText(source) {
@@ -160,7 +162,7 @@ export function createInspector(root) {
     root.appendChild(
       el('button', {
         class: 'btn danger block', text: 'Remove this track',
-        onClick: () => removeSource(source.id),
+        onClick: async () => { if (await confirmRemoveSource(source)) removeSource(source.id); },
       })
     );
 
@@ -253,20 +255,24 @@ export function createInspector(root) {
       btn.textContent = source.hotkey ? hotkeyLabel(source.hotkey) : 'Set hotkey…';
     };
 
-    const onKey = (e) => {
+    const onKey = async (e) => {
       e.preventDefault();
       e.stopPropagation();
       if (e.key === 'Escape') { stop(); return; }
       const binding = bindingFromEvent(e);
       if (!binding) return; // wait for a non-modifier key
       stop();
-      update(() => {
-        // A chord maps to one stream only — clear it from any other.
-        for (const v of state.videoSources) {
-          if (v !== source && sameBinding(v.hotkey, binding)) v.hotkey = null;
-        }
-        source.hotkey = binding;
-      });
+      // Confirm before stealing a chord that another stream already uses.
+      const owner = state.videoSources.find((v) => v !== source && sameBinding(v.hotkey, binding));
+      if (owner) {
+        const ok = await confirmAction({
+          title: 'Reassign hotkey?',
+          message: `${hotkeyLabel(binding)} is already assigned to “${owner.label}”. Reassign it to “${source.label}”?`,
+          confirmText: 'Reassign',
+        });
+        if (!ok) return;
+      }
+      assignHotkey(source, binding); // one chord ↔ one stream (clears any other)
     };
     const stop = () => {
       document.body.removeAttribute('data-hotkey-capture');
@@ -288,7 +294,7 @@ export function createInspector(root) {
         el('button', {
           type: 'button', class: 'btn small ghost hotkey-clear', title: 'Clear hotkey',
           html: fa('xmark'),
-          onClick: () => update(() => { source.hotkey = null; }),
+          onClick: () => assignHotkey(source, null),
         })
       );
     }
@@ -377,18 +383,23 @@ export function createInspector(root) {
       root.appendChild(field('Microphone device', sel));
     }
 
-    const st = source.settings || {};
-    const toggles = [
-      ['echoCancellation', 'Echo cancellation'],
-      ['noiseSuppression', 'Noise suppression'],
-      ['autoGainControl', 'Auto gain control'],
-    ];
-    for (const [key, label] of toggles) {
-      const cb = el('input', {
-        type: 'checkbox', checked: !!st[key], disabled: locked,
-        onChange: (e) => applyAudioConstraints(source, { [key]: e.target.checked }),
-      });
-      root.appendChild(el('label', { class: 'check-row' }, [cb, el('span', { text: label })]));
+    // Echo cancellation / noise suppression / AGC are mic-only processing —
+    // desktop audio comes from getDisplayMedia, not a getUserMedia device, so
+    // it can't be re-acquired with different processing flags.
+    if (source.kind === 'mic') {
+      const st = source.settings || {};
+      const toggles = [
+        ['echoCancellation', 'Echo cancellation'],
+        ['noiseSuppression', 'Noise suppression'],
+        ['autoGainControl', 'Auto gain control'],
+      ];
+      for (const [key, label] of toggles) {
+        const cb = el('input', {
+          type: 'checkbox', checked: !!st[key], disabled: locked,
+          onChange: (e) => applyAudioConstraints(source, { [key]: e.target.checked }),
+        });
+        root.appendChild(el('label', { class: 'check-row' }, [cb, el('span', { text: label })]));
+      }
     }
 
     const brSel = select(

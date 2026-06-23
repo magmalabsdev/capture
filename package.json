@@ -1,0 +1,66 @@
+{
+  "name": "capture-recorder",
+  "productName": "Capture",
+  "version": "1.0.0",
+  "description": "Capture — multi-stream screen, camera and mic recorder. Fully offline desktop build.",
+  "author": "Magma Labs",
+  "license": "SEE LICENSE IN LICENSE",
+  "main": "electron/main.js",
+  "scripts": {
+    "gen-version": "node scripts/gen-version.mjs",
+    "start": "npm run gen-version && electron .",
+    "dist": "npm run gen-version && electron-builder",
+    "dist:mac": "npm run gen-version && electron-builder --mac",
+    "dist:win": "npm run gen-version && electron-builder --win",
+    "dist:linux": "npm run gen-version && electron-builder --linux"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "dev.magmalabs.capture",
+    "productName": "Capture",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": [
+      "electron/**/*",
+      "app/**/*",
+      "src/**/*",
+      "styles/**/*",
+      "vendor/**/*",
+      "media/**/*",
+      "!**/*.map",
+      "!**/.DS_Store"
+    ],
+    "asarUnpack": [ "vendor/ffmpeg/**" ],
+    "mac": {
+      "category": "public.app-category.video",
+      "target": [ "dmg", "zip" ],
+      "icon": "build/icon.png",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "extendInfo": {
+        "NSCameraUsageDescription": "Capture records from your camera.",
+        "NSMicrophoneUsageDescription": "Capture records from your microphone.",
+        "NSScreenCaptureUsageDescription": "Capture records your screen."
+      }
+    },
+    "win": {
+      "target": [ "nsis", "portable" ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
+    },
+    "linux": {
+      "target": [ "AppImage", "deb" ],
+      "icon": "build/icon.png",
+      "category": "AudioVideo",
+      "maintainer": "Magma Labs"
+    }
+  }
+}

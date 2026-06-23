@@ -1,33 +1,8 @@
 /* Capture recorder — Magma Labs design language, dark theme.
    Solid colors only (no gradients). Purple is reserved for buttons. */
 
-@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
-
-@font-face {
-  font-family: 'Open Sauce Two';
-  src: url('https://cdn.jsdelivr.net/gh/marcologous/Open-Sauce-Fonts@master/fonts/OpenSauceTwo/OpenSauceTwo-Regular.woff2') format('woff2');
-  font-weight: 400; font-style: normal; font-display: swap;
-}
-@font-face {
-  font-family: 'Open Sauce Two';
-  src: url('https://cdn.jsdelivr.net/gh/marcologous/Open-Sauce-Fonts@master/fonts/OpenSauceTwo/OpenSauceTwo-Medium.woff2') format('woff2');
-  font-weight: 500; font-style: normal; font-display: swap;
-}
-@font-face {
-  font-family: 'Open Sauce Two';
-  src: url('https://cdn.jsdelivr.net/gh/marcologous/Open-Sauce-Fonts@master/fonts/OpenSauceTwo/OpenSauceTwo-SemiBold.woff2') format('woff2');
-  font-weight: 600; font-style: normal; font-display: swap;
-}
-@font-face {
-  font-family: 'Open Sauce Two';
-  src: url('https://cdn.jsdelivr.net/gh/marcologous/Open-Sauce-Fonts@master/fonts/OpenSauceTwo/OpenSauceTwo-Bold.woff2') format('woff2');
-  font-weight: 700; font-style: normal; font-display: swap;
-}
-@font-face {
-  font-family: 'Open Sauce Two';
-  src: url('https://cdn.jsdelivr.net/gh/marcologous/Open-Sauce-Fonts@master/fonts/OpenSauceTwo/OpenSauceTwo-ExtraBold.woff2') format('woff2');
-  font-weight: 800; font-style: normal; font-display: swap;
-}
+/* Self-hosted fonts — no network dependency. */
+@import url('../vendor/fonts/fonts.css');
 
 :root {
   /* Magma purple accent scale — used for BUTTONS ONLY */
@@ -477,6 +452,13 @@ html, body {
 .recovery .export-item { margin-top: 8px; background: var(--panel-2); }
 .recovery-actions { display: flex; gap: 6px; }
 
+/* Removed-but-kept recordings (deleted streams, still downloadable) */
+.removed-tracks { margin-bottom: 16px; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--accent-500); background: color-mix(in srgb, var(--accent-500) 14%, transparent); }
+.removed-head { display: flex; align-items: center; gap: 8px; color: var(--accent-200); font-size: 13px; margin-bottom: 4px; }
+.removed-tracks .export-item { margin-top: 8px; background: var(--panel-2); border-color: var(--accent-500); }
+.removed-tracks .ei-name { display: flex; align-items: center; gap: 8px; }
+.removed-badge { font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent-100); background: var(--accent-500); border-radius: 999px; padding: 2px 7px; font-weight: 700; }
+
 /* Dropped / stalled / muted track indicators */
 .tile.is-stalled, .tile.is-muted { border-color: var(--warn); }
 .aud-tile.is-stalled, .aud-tile.is-muted { border-color: var(--warn); }
@@ -604,3 +586,17 @@ html, body {
 .modal-head .panel-title { margin: 0; }
 .modal-body { padding: 16px; display: grid; gap: 4px; }
 .modal-body .segmented { width: fit-content; }
+
+/* Confirmation dialog (destructive actions) */
+.confirm-overlay {
+  position: fixed; inset: 0; z-index: 400; display: grid; place-items: center;
+  background: rgba(0, 0, 0, 0.55); backdrop-filter: blur(2px); padding: 20px;
+}
+.confirm-dialog {
+  width: min(420px, 100%); background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5); padding: 20px;
+}
+.confirm-title { margin: 0 0 8px; font-size: 16px; font-weight: 700; }
+.confirm-msg { margin: 0 0 18px; color: var(--muted); font-size: 13.5px; line-height: 1.55; }
+.confirm-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.confirm-actions .btn { min-width: 92px; justify-content: center; }

@@ -7,6 +7,7 @@ import { statusText } from './inspector.js';
 import { startRecording, stopRecording, togglePause, elapsedMs } from '../recorder.js';
 import { removeSource } from '../sources.js';
 import { readLevel } from '../audioMeter.js';
+import { confirmRemoveSource } from './confirm.js';
 
 export function createAudioBar(root) {
   const tiles = new Map(); // id -> { wrapper, els }
@@ -35,7 +36,7 @@ export function createAudioBar(root) {
     });
     const btnRemove = el('button', {
       class: 'tbtn remove', title: 'Remove', html: fa('xmark'),
-      onClick: () => removeSource(source.id),
+      onClick: async () => { if (await confirmRemoveSource(source)) removeSource(source.id); },
     });
     const controls = el('div', { class: 'aud-controls' }, [
       btnStart, btnPause, btnStop, btnRemove,

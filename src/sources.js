@@ -5,7 +5,8 @@ import { uid } from './util/dom.js';
 import { freshRec, stopRecording, continueRecording } from './recorder.js';
 import { attachMeter, detachMeter, getAudioContext } from './audioMeter.js';
 import { deleteRecording } from './util/idb.js';
-import { getSourcePrefs } from './settings.js';
+import { getSourcePrefs, sourceKey, clearStoredHotkey } from './settings.js';
+import { sameBinding } from './util/hotkey.js';
 
 /* ------------------------------------------------------------------ */
 /* Devices                                                            */
@@ -50,8 +51,29 @@ function applyStoredPrefs(source) {
     if (p.targetH) source.targetH = p.targetH;
     if (p.targetFps) source.targetFps = p.targetFps;
     if (p.timelapse) source.timelapse = { ...source.timelapse, ...p.timelapse };
-    if (p.hotkey && typeof p.hotkey === 'object') source.hotkey = p.hotkey;
+    // Only restore the hotkey if no live stream already owns that chord.
+    if (p.hotkey && typeof p.hotkey === 'object' &&
+        !state.videoSources.some((v) => sameBinding(v.hotkey, p.hotkey))) {
+      source.hotkey = p.hotkey;
+    }
   }
+}
+
+/**
+ * Bind a speaker hotkey to a single stream: clears the same chord from every
+ * other live stream and from stored prefs, so one keybind maps to one stream.
+ * Pass `null` to clear the binding.
+ */
+export function assignHotkey(source, binding) {
+  update((s) => {
+    if (binding) {
+      for (const v of s.videoSources) {
+        if (v !== source && sameBinding(v.hotkey, binding)) v.hotkey = null;
+      }
+    }
+    source.hotkey = binding || null;
+  });
+  if (binding) clearStoredHotkey(binding, sourceKey(source));
 }
 
 /** Re-apply saved hardware constraints (resolution/fps, mic processing) async. */
@@ -60,7 +82,7 @@ function restoreHardware(source) {
   if (!p) return;
   if (source.mediaKind === 'video' && (p.targetW || p.targetFps)) {
     applyVideoConstraints(source, { width: p.targetW, height: p.targetH, frameRate: p.targetFps }).catch(() => {});
-  } else if (source.mediaKind === 'audio' && p.audio) {
+  } else if (source.mediaKind === 'audio' && source.kind === 'mic' && p.audio) {
     const a = {};
     for (const k of ['echoCancellation', 'noiseSuppression', 'autoGainControl']) {
       if (typeof p.audio[k] === 'boolean') a[k] = p.audio[k];
@@ -297,8 +319,15 @@ export function removeSource(id) {
       }
       detachMeter(src);
       src.stream.getTracks().forEach((t) => t.stop());
-      deleteRecording(src.id).catch(() => {}); // drop durable data for this source
       list.splice(i, 1);
+      if (src.rec && src.rec.hasData) {
+        // Keep the footage downloadable — flag it removed instead of dropping it.
+        src.removed = true;
+        src.streamEnded = true;
+        s.removed.push(src);
+      } else {
+        deleteRecording(src.id).catch(() => {}); // no footage — drop durable data
+      }
     }
     if (s.selectedId === id) {
       s.selectedId = (s.videoSources[0] || s.audioSources[0] || {}).id || null;
@@ -373,6 +402,10 @@ export async function applyVideoConstraints(source, { width, height, frameRate }
 
 export async function applyAudioConstraints(source, constraints) {
   if (busy(source)) return;
+  // Desktop audio comes from getDisplayMedia, not a getUserMedia device — it
+  // can't be re-acquired with different processing flags, so there's nothing
+  // to apply here.
+  if (source.kind !== 'mic') return;
   // echoCancellation / noiseSuppression / autoGainControl cannot be toggled on a
   // live MediaStreamTrack — applyConstraints is a silent no-op in Chrome (a plain
   // boolean is ignored and `{ exact }` throws), so the checkbox would just snap

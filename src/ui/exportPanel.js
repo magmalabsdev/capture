@@ -21,6 +21,7 @@ import {
   useBrowserDownloads,
   reconnectDownloadDir,
 } from '../download.js';
+import { confirmAction } from './confirm.js';
 
 export function createExportPanel(root) {
   function recordedVideos(s) {
@@ -99,6 +100,7 @@ export function createExportPanel(root) {
     root.appendChild(el('h2', { class: 'panel-title', text: 'Export' }));
 
     if (s.recovery && s.recovery.length) root.appendChild(renderRecovery(s));
+    if (s.removed && s.removed.length) root.appendChild(renderRemoved(s));
 
     root.appendChild(renderDownloadLocation(s));
 
@@ -169,8 +171,63 @@ export function createExportPanel(root) {
             el('button', {
               class: 'btn small danger', text: 'Discard',
               onClick: async () => {
+                const ok = await confirmAction({
+                  title: 'Discard recording?',
+                  message: `Permanently delete the recovered “${meta.label || 'recording'}”? This can’t be undone.`,
+                  confirmText: 'Discard',
+                });
+                if (!ok) return;
                 await discardRecovered(meta.sourceId);
                 update((st) => { st.recovery = st.recovery.filter((m) => m.sourceId !== meta.sourceId); });
+              },
+            }),
+          ]),
+        ])
+      );
+    }
+    return wrap;
+  }
+
+  // Recordings whose source stream was deleted — kept (and highlighted) here so
+  // the footage can still be downloaded, until the user deletes it explicitly.
+  function renderRemoved(s) {
+    const wrap = el('div', { class: 'removed-tracks' });
+    wrap.appendChild(
+      el('div', { class: 'removed-head' }, [
+        el('span', { html: fa('trash-can-arrow-up') }),
+        el('strong', { text: `${s.removed.length} removed track${s.removed.length === 1 ? '' : 's'} kept for download` }),
+      ])
+    );
+    wrap.appendChild(
+      el('p', { class: 'muted tiny' }, 'These streams were deleted, but their recordings stay here until you delete them.')
+    );
+    for (const src of s.removed) {
+      const outExt = src.mediaKind === 'audio' ? 'mp3' : src.rec.ext;
+      wrap.appendChild(
+        el('div', { class: 'export-item removed' }, [
+          el('div', { class: 'ei-info' }, [
+            el('span', { class: 'ei-name' }, [
+              src.label,
+              el('span', { class: 'removed-badge', text: 'removed' }),
+            ]),
+            el('span', { class: 'ei-meta', text: `${outExt} · ${formatBytes(src.rec.bytes || src.rec.size)}` }),
+          ]),
+          el('div', { class: 'recovery-actions' }, [
+            el('button', {
+              class: 'btn small', text: 'Download',
+              onClick: (e) => downloadOne(src, e.target),
+            }),
+            el('button', {
+              class: 'btn small danger', text: 'Delete',
+              onClick: async () => {
+                const ok = await confirmAction({
+                  title: 'Delete recording?',
+                  message: `Permanently delete “${src.label}”? This can’t be undone.`,
+                  confirmText: 'Delete',
+                });
+                if (!ok) return;
+                await discardRecovered(src.id); // drop durable data for this id
+                update((st) => { st.removed = st.removed.filter((r) => r.id !== src.id); });
               },
             }),
           ]),

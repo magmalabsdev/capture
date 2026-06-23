@@ -32,6 +32,10 @@ export const state = {
   // Recordings left in IndexedDB by a previous/crashed session (crash recovery).
   recovery: [],
 
+  // Sources deleted while holding a recording — kept downloadable until the
+  // user explicitly deletes them from the export panel.
+  removed: [],
+
   // Download destination (File System Access API where supported).
   download: { supported: false, mode: 'browser', name: '', available: true, needsReconnect: false },
 

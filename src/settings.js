@@ -4,6 +4,8 @@
 // can: global UI/export settings, and per-track config keyed by device so a
 // re-added camera/mic/screen comes back configured the way you left it.
 
+import { sameBinding } from './util/hotkey.js';
+
 const KEY = 'capture.settings.v1';
 
 let cache = (() => {
@@ -59,7 +61,7 @@ function snapshot(source) {
     p.targetFps = source.targetFps;
     p.timelapse = source.timelapse;
     p.hotkey = source.hotkey;
-  } else {
+  } else if (source.kind === 'mic') {
     const s = source.settings || {};
     p.audio = {
       echoCancellation: s.echoCancellation,
@@ -75,4 +77,20 @@ export function persistSources(sources) {
   cache.sources = cache.sources || {};
   for (const s of sources) cache.sources[sourceKey(s)] = snapshot(s);
   persist();
+}
+
+/**
+ * Strip a speaker hotkey from every stored source pref except `exceptKey`, so a
+ * chord is never restored onto a second stream (one keybind ↔ one stream).
+ */
+export function clearStoredHotkey(binding, exceptKey) {
+  if (!binding || !cache.sources) return;
+  let changed = false;
+  for (const [k, p] of Object.entries(cache.sources)) {
+    if (k !== exceptKey && p && sameBinding(p.hotkey, binding)) {
+      delete p.hotkey;
+      changed = true;
+    }
+  }
+  if (changed) persist();
 }

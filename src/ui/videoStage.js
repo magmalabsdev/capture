@@ -13,6 +13,7 @@ import {
   elapsedMs,
 } from '../recorder.js';
 import { removeSource } from '../sources.js';
+import { confirmRemoveSource } from './confirm.js';
 
 export function createVideoStage(root) {
   const tiles = new Map(); // id -> { wrapper, video, els }
@@ -51,7 +52,7 @@ export function createVideoStage(root) {
     });
     const btnRemove = el('button', {
       class: 'tbtn remove', title: 'Remove source', html: fa('xmark'),
-      onClick: () => removeSource(source.id),
+      onClick: async () => { if (await confirmRemoveSource(source)) removeSource(source.id); },
     });
 
     const controls = el('div', { class: 'tile-controls' }, [
@@ -73,7 +74,11 @@ export function createVideoStage(root) {
         dataset: { id: source.id },
         onClick: (e) => {
           if (e.target.closest('.tbtn')) return;
-          update((s) => { s.selectedId = source.id; });
+          update((s) => {
+            s.selectedId = source.id;
+            // In speaker view, clicking a stream focuses it as the main tile.
+            if (s.view === 'speaker') s.speakerMainId = source.id;
+          });
         },
       },
       [video, overlay, top, controls, bottom]
