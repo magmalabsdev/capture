@@ -295,30 +295,45 @@ export function createExportPanel(root) {
     const wrap = el('div', { class: 'auto-export' });
     wrap.appendChild(el('h3', { class: 'sub-title', text: 'Auto-export' }));
 
-    const minutes = el('input', {
-      type: 'number',
-      class: 'input-num',
-      min: '0',
-      step: '0.5',
-      placeholder: 'off',
-      value: p.enabled ? String(+(p.intervalSec / 60).toFixed(2)) : '',
-      title: 'Minutes between auto-exports (0 or blank = off)',
-      onChange: (e) => {
-        const mins = parseFloat(e.target.value);
-        if (!mins || mins <= 0) configurePeriodic({ enabled: false });
-        else configurePeriodic({ enabled: true, intervalSec: Math.round(mins * 60) });
-      },
+    const enable = el('input', {
+      type: 'checkbox',
+      checked: p.enabled,
+      onChange: (e) => configurePeriodic({ enabled: e.target.checked }),
     });
     wrap.appendChild(
-      el('div', { class: 'auto-export-row' }, [
-        el('span', { class: 'auto-export-label', html: `${fa('clock-rotate-left')} <span>Export a clip every</span>` }),
-        minutes,
-        el('span', { class: 'auto-export-unit', text: 'min' }),
+      el('label', { class: 'check-row' }, [
+        enable,
+        el('span', { html: `${fa('clock-rotate-left')} <span>Export a clip periodically</span>` }),
       ])
     );
 
-    const status = el('p', { class: 'muted tiny', dataset: { next: '1' } });
-    wrap.appendChild(status);
+    // Interval + live status only exist while enabled — keeping them out of the
+    // DOM when off avoids the ticker fighting a re-render over the same element.
+    if (p.enabled) {
+      const minutes = el('input', {
+        type: 'number',
+        class: 'input-num',
+        min: '0.5',
+        step: '0.5',
+        value: String(+(p.intervalSec / 60).toFixed(2)),
+        title: 'Minutes between auto-exports',
+        onChange: (e) => {
+          const mins = parseFloat(e.target.value);
+          if (!mins || mins <= 0) configurePeriodic({ enabled: false });
+          else configurePeriodic({ enabled: true, intervalSec: Math.round(mins * 60) });
+        },
+      });
+      wrap.appendChild(
+        el('div', { class: 'auto-export-row' }, [
+          el('span', { class: 'auto-export-label', text: 'Every' }),
+          minutes,
+          el('span', { class: 'auto-export-unit', text: 'min' }),
+        ])
+      );
+
+      const status = el('p', { class: 'muted tiny', dataset: { next: '1' } });
+      wrap.appendChild(status);
+    }
 
     wrap.appendChild(
       el('p', { class: 'muted tiny' },
@@ -327,21 +342,18 @@ export function createExportPanel(root) {
     return wrap;
   }
 
-  // Live countdown + clip count (updated by the app ticker).
+  // Live countdown + clip count (updated by the app ticker). The status element
+  // is only present while auto-export is enabled.
   function tick() {
     const el2 = root.querySelector('[data-next]');
     if (!el2) return;
     const p = state.periodic;
-    if (!p.enabled) {
-      el2.textContent = 'Off.';
-      return;
-    }
     const secs = Math.max(0, Math.round((p.nextAt - Date.now()) / 1000));
     const recording = [...state.videoSources, ...state.audioSources].some(
       (x) => x.rec.status === 'recording'
     );
     const left = recording ? `next clip in ${secs}s` : 'waiting for a recording to start';
-    el2.textContent = `On · ${p.count} clip${p.count === 1 ? '' : 's'} exported · ${left}.`;
+    el2.textContent = `${p.count} clip${p.count === 1 ? '' : 's'} exported · ${left}.`;
   }
 
   function renderSingle(s, auds) {
