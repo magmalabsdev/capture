@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Capture — Multi-Stream Screen &amp; Camera Recorder</title>
-  <meta name="description" content="Record every screen, camera, and mic at once — each as its own independent track. Runs in your browser. No install, no account, nothing uploaded." />
+  <title>Capture - Multi-Stream Screen &amp; Camera Recorder</title>
+  <meta name="description" content="Record every screen, camera, and mic at once - each as its own independent track. Runs in your browser. No install, no account, nothing uploaded." />
   <link rel="icon" type="image/png" href="media/imgs/Capture%20Logo.png" />
   <link rel="apple-touch-icon" href="media/imgs/Capture%20Logo.png" />
   <script>
@@ -126,7 +126,7 @@
       border-radius:var(--radius); overflow:hidden;
       transition:width .9s var(--ease), margin-bottom .9s var(--ease);
     }
-    /* Once the app UI has assembled, the stage shrinks — its 16/9 box collapses
+    /* Once the app UI has assembled, the stage shrinks - its 16/9 box collapses
        so the "Capture" title below rises toward the vertical centre. */
     .scene-stage.shrunk { width:min(480px,86%); margin-bottom:clamp(22px,3vw,32px); }
     :root[data-theme="light"] .scene-stage { background:#eef1f7; }
@@ -187,30 +187,57 @@
     .hero-actions { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; opacity:0; transform:translateY(10px); transition:opacity .5s var(--ease), transform .5s var(--ease); }
     .hero-actions.show { opacity:1; transform:none; }
 
-    /* ---- Feature grid ---- */
-    .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
-    @media (max-width:860px){ .grid-3 { grid-template-columns:1fr; } }
-    .card {
-      background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
-      padding:26px; transition:border-color .14s var(--ease), transform .14s var(--ease);
+    /* ---- Feature highlights (full-width, alternating text / mockup) ---- */
+    .features-list { margin-top:12px; }
+    .feature {
+      width:100vw; margin-inline:calc(50% - 50vw);
+      border-top:1px solid var(--line-soft);
     }
-    .card:hover { border-color:var(--panel-3); transform:translateY(-3px); }
-    .card .ic {
-      width:42px; height:42px; border-radius:12px; display:grid; place-items:center;
-      background:color-mix(in srgb, var(--accent-500) 22%, transparent); color:var(--accent-200);
-      font-size:17px; margin-bottom:16px;
+    .feature:nth-of-type(even) { background:var(--bg-2); }
+    .feature-inner {
+      display:grid; grid-template-columns:1fr 1fr; gap:clamp(28px,5vw,64px);
+      align-items:center; padding-block:clamp(48px,7vw,88px);
     }
-    .card h3 { margin:0 0 8px; font-size:18px; font-weight:700; letter-spacing:-.01em; }
-    .card p { margin:0; color:var(--muted); font-size:14.5px; }
-    .card em { color:var(--text); font-style:normal; font-weight:600; }
+    .feature:nth-of-type(even) .feature-mock { order:-1; }
+    .feature-text .eyebrow { margin-bottom:12px; }
+    .feature-title {
+      font-size:clamp(22px,3vw,30px); font-weight:800; letter-spacing:-.02em;
+      line-height:1.12; margin:0 0 12px;
+    }
+    .feature-desc { color:var(--muted); font-size:clamp(15px,1.5vw,16.5px); margin:0 0 18px; }
+    .feature-desc em { color:var(--text); font-style:normal; font-weight:600; }
+    .feature-points { list-style:none; margin:0; padding:0; display:grid; gap:10px; }
+    .feature-points li { display:flex; align-items:flex-start; gap:10px; font-size:14.5px; color:var(--text); }
+    .feature-points i { color:var(--accent-300); font-size:13px; margin-top:4px; flex:none; }
+    .feature-mock { margin:0; }
+    .feature-mock svg {
+      width:100%; height:auto; display:block;
+      border:1px solid var(--line); border-radius:var(--radius); background:var(--bg-2);
+      box-shadow:0 18px 40px -28px rgba(0,0,0,.7);
+    }
+    :root[data-theme="dark"] .feature:nth-of-type(even) .feature-mock svg { background:var(--bg); }
+    @media (max-width:860px){
+      .feature-inner { grid-template-columns:1fr; gap:26px; }
+      .feature:nth-of-type(even) .feature-mock { order:0; }
+    }
 
-    .strip-banner {
-      margin-top:18px; background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
-      padding:22px 26px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; justify-content:center; text-align:center;
-    }
-    .strip-banner i { color:var(--ok); font-size:18px; }
-    .strip-banner b { font-weight:700; }
-    .strip-banner span { color:var(--muted); }
+    /* On-brand mockup primitives (mirror the hero's Capture UI look) */
+    .mk-panel { fill:var(--panel); stroke:var(--line); stroke-width:1.5; }
+    .mk-bar   { fill:#0a0c11; stroke:var(--line); stroke-width:1.5; }
+    :root[data-theme="light"] .mk-bar { fill:#e9edf4; }
+    .mk-tile  { fill:#0a0c11; stroke-width:1.6; }
+    :root[data-theme="light"] .mk-tile { fill:#10151f; }
+    .mk-fill  { stroke:none; }
+    .mk-glyph { fill:none; stroke-width:2; opacity:.9; }
+    .mk-lbl   { font-family:var(--font-mono); font-size:9px; letter-spacing:.06em; fill:#cfd6e6; }
+    .mk-mlbl  { font-family:var(--font-mono); font-size:10px; letter-spacing:.1em; fill:var(--muted); }
+    .mk-led   { fill:var(--rec); }
+    .mk-conn  { stroke-width:1.6; stroke-dasharray:4 4; fill:none; }
+    .mk-chip  { fill:var(--panel-2); stroke:var(--line); stroke-width:1.4; }
+    .mk-axis  { stroke:var(--line); stroke-width:1.5; }
+    .mk-code  { font-family:var(--font-mono); font-size:9.5px; fill:var(--muted); }
+    .mk-codek { fill:var(--accent-300); }
+    .mk-codes { fill:var(--ok); }
 
     /* ---- Comparison table ---- */
     .table-scroll { overflow-x:auto; border:1px solid var(--line); border-radius:var(--radius); background:var(--panel); }
@@ -232,9 +259,7 @@
 
     /* ---- Self-contained ---- */
     .self { text-align:center; }
-    .self .grid-3 { margin-top:8px; }
-    .self .card { text-align:left; }
-    .closing { text-align:center; margin-top:44px; }
+    .closing { text-align:center; margin-top:8px; }
 
     /* ---- Footer ---- */
     footer.site {
@@ -247,7 +272,6 @@
     @media (prefers-reduced-motion: reduce) {
       html { scroll-behavior:auto; }
       .hero-actions { opacity:1; transform:none; }
-      .card:hover { transform:none; }
     }
   </style>
 </head>
@@ -256,7 +280,7 @@
   <nav class="nav">
     <div class="wrap nav-inner">
       <div class="brand-lockup">
-        <button type="button" class="brand-home" aria-label="Capture — reload page">
+        <button type="button" class="brand-home" aria-label="Capture - reload page">
           <img class="cap-banner banner--dark" src="media/imgs/Capture%20Dark%20Banner.png" alt="Capture" />
           <img class="cap-banner banner--light" src="media/imgs/Capture%20Light%20Banner.png" alt="Capture" />
         </button>
@@ -283,7 +307,7 @@
     </svg>
 
     <h1 class="hero-title" id="title">Capture</h1>
-    <p class="hero-hook" id="hook">Record every screen, camera, and mic at once — each as its own track.</p>
+    <p class="hero-hook" id="hook">Record every screen, camera, and mic at once - each as its own track.</p>
     <div class="hero-actions" id="actions">
       <a class="btn btn-primary btn-lg" data-app><i class="fa-solid fa-circle-dot"></i>Open Recorder</a>
       <a class="btn btn-ghost btn-lg" data-gh><i class="fa-brands fa-github"></i>View on GitHub</a>
@@ -295,30 +319,248 @@
     <div class="wrap">
       <p class="eyebrow">What makes it different</p>
       <h2 class="section-title">One panel for what used to take a pile of apps and devices.</h2>
-      <p class="section-sub">Recording a screen, a webcam, a phone, and a couple of mics normally means a separate tool for each — then wrestling the files together afterward. Capture runs every stream from a single panel, recording them at once while keeping each as its own independent track.</p>
+      <p class="section-sub">Recording a screen, a webcam, a phone, and a couple of mics normally means a separate tool for each - then wrestling the files together afterward. Capture runs every stream from a single panel, recording them at once while keeping each as its own independent track.</p>
+    </div>
 
-      <div class="grid-3">
-        <div class="card">
-          <div class="ic"><i class="fa-solid fa-layer-group"></i></div>
-          <h3>Every stream, its own track</h3>
-          <p>Webcam, laptop screen, an external monitor, a single browser tab, even a <em>connected phone</em> — each is an independent video track you start, pause, and finish on its own.</p>
-        </div>
-        <div class="card">
-          <div class="ic"><i class="fa-solid fa-sliders"></i></div>
-          <h3>Audio you can actually separate</h3>
-          <p>Microphone, external mic, and <em>desktop/system audio as its own track</em> — not baked into the video. Live VU meters on every channel so you can see what's hot.</p>
-        </div>
-        <div class="card">
-          <div class="ic"><i class="fa-solid fa-file-export"></i></div>
-          <h3>Export your way</h3>
-          <p><em>Single</em> — one video plus all audio. <em>Export All</em> — every track on its own. <em>Merge</em> — assign one or more audio tracks to each video before you render.</p>
+    <div class="features-list">
+
+      <!-- Feature 1 - Multiple streams -->
+      <div class="feature">
+        <div class="wrap feature-inner">
+          <div class="feature-text">
+            <p class="eyebrow">Multiple streams</p>
+            <h3 class="feature-title">Record everything at once - each on its own track</h3>
+            <p class="feature-desc">Webcam, laptop screen, external monitors, a single browser tab, even a <em>connected phone</em>. Every source is an independent video track you start, pause, and finish on its own - and microphone, external mic, and <em>desktop audio</em> come in as their own separate tracks too.</p>
+            <ul class="feature-points">
+              <li><i class="fa-solid fa-check"></i><span>Screens, cameras, tabs and phones captured in parallel</span></li>
+              <li><i class="fa-solid fa-check"></i><span>Per-track start / pause / resume / finish</span></li>
+              <li><i class="fa-solid fa-check"></i><span>Desktop and mic audio kept as distinct tracks</span></li>
+            </ul>
+          </div>
+          <figure class="feature-mock">
+            <svg viewBox="0 0 420 264" role="img" aria-label="Mockup of the Capture grid with four video tiles and an audio bar">
+              <rect class="mk-panel" x="14" y="14" width="392" height="26" rx="7" />
+              <circle class="mk-led" cx="30" cy="27" r="3.5" /><text class="mk-mlbl" x="42" y="31">CAPTURE - 4 VIDEO · 2 AUDIO</text>
+              <!-- 2x2 video grid -->
+              <g>
+                <!-- tile -->
+                <g style="--c:#8a65d6">
+                  <rect class="mk-tile" x="14" y="50" width="188" height="74" rx="8" style="stroke:#8a65d6" />
+                  <rect class="mk-fill" x="22" y="58" width="172" height="46" rx="5" style="fill:color-mix(in srgb,#8a65d6 20%,transparent)" />
+                  <path class="mk-glyph" d="M 100 73 L 116 81 L 100 89 Z" style="stroke:#8a65d6" />
+                  <text class="mk-lbl" x="24" y="118">SCREEN</text><circle class="mk-led" cx="190" cy="114" r="3.4" />
+                </g>
+                <g style="--c:#22d3ee">
+                  <rect class="mk-tile" x="218" y="50" width="188" height="74" rx="8" style="stroke:#22d3ee" />
+                  <rect class="mk-fill" x="226" y="58" width="172" height="46" rx="5" style="fill:color-mix(in srgb,#22d3ee 20%,transparent)" />
+                  <path class="mk-glyph" d="M 304 73 L 320 81 L 304 89 Z" style="stroke:#22d3ee" />
+                  <text class="mk-lbl" x="228" y="118">WEBCAM</text><circle class="mk-led" cx="394" cy="114" r="3.4" />
+                </g>
+                <g style="--c:#3b82f6">
+                  <rect class="mk-tile" x="14" y="132" width="188" height="74" rx="8" style="stroke:#3b82f6" />
+                  <rect class="mk-fill" x="22" y="140" width="172" height="46" rx="5" style="fill:color-mix(in srgb,#3b82f6 20%,transparent)" />
+                  <path class="mk-glyph" d="M 100 155 L 116 163 L 100 171 Z" style="stroke:#3b82f6" />
+                  <text class="mk-lbl" x="24" y="200">PHONE</text><circle class="mk-led" cx="190" cy="196" r="3.4" />
+                </g>
+                <g style="--c:#a78bfa">
+                  <rect class="mk-tile" x="218" y="132" width="188" height="74" rx="8" style="stroke:#a78bfa" />
+                  <rect class="mk-fill" x="226" y="140" width="172" height="46" rx="5" style="fill:color-mix(in srgb,#a78bfa 20%,transparent)" />
+                  <path class="mk-glyph" d="M 304 155 L 320 163 L 304 171 Z" style="stroke:#a78bfa" />
+                  <text class="mk-lbl" x="228" y="200">MONITOR 2</text><circle class="mk-led" cx="394" cy="196" r="3.4" />
+                </g>
+              </g>
+              <!-- audio bar -->
+              <rect class="mk-bar" x="14" y="214" width="392" height="36" rx="8" />
+              <g>
+                <rect x="24" y="223" width="78" height="18" rx="4" style="fill:color-mix(in srgb,#46d39a 22%,transparent)" />
+                <text class="mk-lbl" x="30" y="236" style="fill:#cfe9dd">MIC</text>
+                <rect x="112" y="223" width="100" height="18" rx="4" style="fill:color-mix(in srgb,#f5b955 22%,transparent)" />
+                <text class="mk-lbl" x="118" y="236" style="fill:#f3dcae">DESKTOP</text>
+              </g>
+              <g style="fill:#46d39a"><rect x="320" y="228" width="3" height="8" rx="1"/><rect x="326" y="224" width="3" height="16" rx="1"/><rect x="332" y="230" width="3" height="4" rx="1"/><rect x="338" y="222" width="3" height="20" rx="1"/><rect x="344" y="227" width="3" height="10" rx="1"/><rect x="350" y="225" width="3" height="14" rx="1"/><rect x="356" y="229" width="3" height="6" rx="1"/><rect x="362" y="223" width="3" height="18" rx="1"/><rect x="368" y="228" width="3" height="8" rx="1"/><rect x="374" y="226" width="3" height="12" rx="1"/><rect x="380" y="230" width="3" height="4" rx="1"/><rect x="386" y="224" width="3" height="16" rx="1"/><rect x="392" y="228" width="3" height="8" rx="1"/></g>
+            </svg>
+          </figure>
         </div>
       </div>
 
-      <div class="strip-banner">
-        <i class="fa-solid fa-shield-halved"></i>
-        <span><b>Runs in your browser.</b> No install, no account, nothing uploaded — recording stays on your machine.</span>
+      <!-- Feature 2 - Merge export -->
+      <div class="feature">
+        <div class="wrap feature-inner">
+          <div class="feature-text">
+            <p class="eyebrow">Merge export</p>
+            <h3 class="feature-title">Mix and match audio onto video at export</h3>
+            <p class="feature-desc">Don't settle for one baked-in mix. In <em>merge</em> mode you assign one or more audio tracks to each video, then render - so the screencast gets the mic and desktop audio while the camera gets just the lav. Prefer it simpler? <em>Single</em> combines one video with all audio, and <em>Export All</em> writes every track on its own.</p>
+            <ul class="feature-points">
+              <li><i class="fa-solid fa-check"></i><span>Assign any combination of audio tracks per video</span></li>
+              <li><i class="fa-solid fa-check"></i><span>Three modes: Single · Export All · Merge</span></li>
+              <li><i class="fa-solid fa-check"></i><span>Muxed locally with ffmpeg.wasm - nothing uploaded</span></li>
+            </ul>
+          </div>
+          <figure class="feature-mock">
+            <svg viewBox="0 0 420 264" role="img" aria-label="Mockup showing audio tracks assigned to a video before merge export">
+              <!-- video target -->
+              <g style="--c:#8a65d6">
+                <rect class="mk-tile" x="26" y="92" width="150" height="80" rx="8" style="stroke:#8a65d6" />
+                <rect class="mk-fill" x="34" y="100" width="134" height="50" rx="5" style="fill:color-mix(in srgb,#8a65d6 20%,transparent)" />
+                <path class="mk-glyph" d="M 95 117 L 113 125 L 95 133 Z" style="stroke:#8a65d6" />
+                <text class="mk-lbl" x="36" y="166">SCREEN</text><circle class="mk-led" cx="164" cy="162" r="3.4" />
+              </g>
+              <!-- audio chips -->
+              <g>
+                <rect class="mk-chip" x="244" y="44" width="150" height="34" rx="8" />
+                <g style="fill:#46d39a" transform="translate(256,55)"><rect x="0" y="6" width="3" height="8" rx="1"/><rect x="5" y="2" width="3" height="16" rx="1"/><rect x="10" y="8" width="3" height="4" rx="1"/><rect x="15" y="0" width="3" height="20" rx="1"/><rect x="20" y="5" width="3" height="10" rx="1"/></g>
+                <text class="mk-lbl" x="290" y="65">MIC</text>
+              </g>
+              <g>
+                <rect class="mk-chip" x="244" y="115" width="150" height="34" rx="8" />
+                <g style="fill:#f5b955" transform="translate(256,126)"><rect x="0" y="4" width="3" height="12" rx="1"/><rect x="5" y="0" width="3" height="20" rx="1"/><rect x="10" y="7" width="3" height="6" rx="1"/><rect x="15" y="3" width="3" height="14" rx="1"/><rect x="20" y="8" width="3" height="4" rx="1"/></g>
+                <text class="mk-lbl" x="290" y="136">DESKTOP</text>
+              </g>
+              <g>
+                <rect class="mk-chip" x="244" y="186" width="150" height="34" rx="8" />
+                <g style="fill:#34d399" transform="translate(256,197)"><rect x="0" y="6" width="3" height="8" rx="1"/><rect x="5" y="3" width="3" height="14" rx="1"/><rect x="10" y="0" width="3" height="20" rx="1"/><rect x="15" y="7" width="3" height="6" rx="1"/><rect x="20" y="4" width="3" height="12" rx="1"/></g>
+                <text class="mk-lbl" x="290" y="207">LAV MIC</text>
+              </g>
+              <!-- connectors: MIC + DESKTOP assigned to SCREEN -->
+              <path class="mk-conn" d="M 244 61 C 210 70, 200 110, 178 122" style="stroke:#46d39a" />
+              <path class="mk-conn" d="M 244 132 C 215 132, 205 132, 178 132" style="stroke:#f5b955" />
+              <circle cx="178" cy="122" r="3" style="fill:#46d39a" />
+              <circle cx="178" cy="132" r="3" style="fill:#f5b955" />
+              <text class="mk-mlbl" x="26" y="34">MERGE EXPORT</text>
+            </svg>
+          </figure>
+        </div>
       </div>
+
+      <!-- Feature 3 - Periodic export -->
+      <div class="feature">
+        <div class="wrap feature-inner">
+          <div class="feature-text">
+            <p class="eyebrow">Periodic export</p>
+            <h3 class="feature-title">Auto-save clips while you keep recording</h3>
+            <p class="feature-desc">Turn on periodic export and Capture quietly downloads a zip every few seconds - a fresh clip from <em>each</em> recording track since the last one - <em>without ever stopping the recording</em>. A safety net for long sessions, and an easy way to hand off footage as you go.</p>
+            <ul class="feature-points">
+              <li><i class="fa-solid fa-check"></i><span>Set any interval (from 10s up)</span></li>
+              <li><i class="fa-solid fa-check"></i><span>One zip per tick, every track included</span></li>
+              <li><i class="fa-solid fa-check"></i><span>Recording never pauses or drops a frame</span></li>
+            </ul>
+          </div>
+          <figure class="feature-mock">
+            <svg viewBox="0 0 420 264" role="img" aria-label="Mockup of periodic auto-export dropping zip files on a timeline">
+              <text class="mk-mlbl" x="26" y="34">AUTO-EXPORT · EVERY 30s</text>
+              <!-- clock -->
+              <circle cx="58" cy="96" r="30" class="mk-panel" />
+              <circle cx="58" cy="96" r="2.4" style="fill:var(--accent-300)" />
+              <path d="M 58 96 L 58 76" style="stroke:var(--accent-300);stroke-width:2.4;stroke-linecap:round" />
+              <path d="M 58 96 L 73 102" style="stroke:var(--accent-300);stroke-width:2.4;stroke-linecap:round" />
+              <path d="M 92 96 A 34 34 0 0 1 88 112" style="fill:none;stroke:var(--ok);stroke-width:2;stroke-linecap:round" />
+              <!-- timeline -->
+              <line class="mk-axis" x1="26" y1="166" x2="394" y2="166" />
+              <g style="stroke:var(--line);stroke-width:1.5"><line x1="70" y1="161" x2="70" y2="171"/><line x1="178" y1="161" x2="178" y2="171"/><line x1="286" y1="161" x2="286" y2="171"/><line x1="394" y1="161" x2="394" y2="171"/></g>
+              <!-- zip cards dropping at ticks -->
+              <g>
+                <rect class="mk-panel" x="48" y="188" width="60" height="48" rx="7" />
+                <path class="mk-glyph" d="M 78 198 L 78 214 M 72 208 L 78 214 L 84 208" style="stroke:var(--accent-300)" />
+                <text class="mk-lbl" x="56" y="230">clip-001</text>
+              </g>
+              <g>
+                <rect class="mk-panel" x="156" y="188" width="60" height="48" rx="7" />
+                <path class="mk-glyph" d="M 186 198 L 186 214 M 180 208 L 186 214 L 192 208" style="stroke:var(--accent-300)" />
+                <text class="mk-lbl" x="164" y="230">clip-002</text>
+              </g>
+              <g>
+                <rect class="mk-panel" x="264" y="188" width="60" height="48" rx="7" />
+                <path class="mk-glyph" d="M 294 198 L 294 214 M 288 208 L 294 214 L 300 208" style="stroke:var(--accent-300)" />
+                <text class="mk-lbl" x="272" y="230">clip-003</text>
+              </g>
+              <g opacity="0.45">
+                <rect class="mk-panel" x="364" y="188" width="44" height="48" rx="7" stroke-dasharray="4 4" />
+                <text class="mk-lbl" x="372" y="216">next…</text>
+              </g>
+            </svg>
+          </figure>
+        </div>
+      </div>
+
+      <!-- Feature 4 - Time-lapse modes -->
+      <div class="feature">
+        <div class="wrap feature-inner">
+          <div class="feature-text">
+            <p class="eyebrow">Time-lapse modes</p>
+            <h3 class="feature-title">Compress hours into seconds, per track</h3>
+            <p class="feature-desc">Give any track a time-lapse on export. Pick a <em>constant speed</em> - say compress 2 hours down to 30 seconds - or set a <em>target length</em> and let Capture fit the speed to it. Audio is sped to match, so a long build or stream becomes a tight, watchable clip.</p>
+            <ul class="feature-points">
+              <li><i class="fa-solid fa-check"></i><span>Static (constant speed) or Dynamic (fit to length)</span></li>
+              <li><i class="fa-solid fa-check"></i><span>Audio time-stretched to stay in sync</span></li>
+              <li><i class="fa-solid fa-check"></i><span>Applied per track at export time</span></li>
+            </ul>
+          </div>
+          <figure class="feature-mock">
+            <svg viewBox="0 0 420 264" role="img" aria-label="Mockup of a long recording compressed into a short time-lapse clip">
+              <text class="mk-mlbl" x="26" y="34">TIME-LAPSE</text>
+              <!-- long source bar -->
+              <text class="mk-lbl" x="26" y="66" style="fill:var(--muted)">SOURCE · 2h 00m</text>
+              <rect class="mk-bar" x="26" y="74" width="368" height="26" rx="6" />
+              <g style="fill:color-mix(in srgb,#8a65d6 55%,transparent)">
+                <rect x="34" y="80" width="40" height="14" rx="2"/><rect x="80" y="80" width="40" height="14" rx="2"/><rect x="126" y="80" width="40" height="14" rx="2"/><rect x="172" y="80" width="40" height="14" rx="2"/><rect x="218" y="80" width="40" height="14" rx="2"/><rect x="264" y="80" width="40" height="14" rx="2"/><rect x="310" y="80" width="40" height="14" rx="2"/><rect x="356" y="80" width="30" height="14" rx="2"/>
+              </g>
+              <!-- funnel -->
+              <path d="M 26 108 L 200 150 L 26 150 Z" style="fill:color-mix(in srgb,var(--accent-500) 16%,transparent)" />
+              <path d="M 394 108 L 220 150 L 394 150 Z" style="fill:color-mix(in srgb,var(--accent-500) 16%,transparent)" />
+              <!-- speed badge -->
+              <rect x="178" y="118" width="64" height="24" rx="12" style="fill:var(--accent-500)" />
+              <text x="210" y="134" text-anchor="middle" style="font-family:var(--font-mono);font-size:11px;font-weight:700;fill:#fff">×240</text>
+              <!-- short output bar -->
+              <rect class="mk-bar" x="160" y="160" width="100" height="26" rx="6" />
+              <g style="fill:#a78bfa"><rect x="168" y="166" width="20" height="14" rx="2"/><rect x="192" y="166" width="20" height="14" rx="2"/><rect x="216" y="166" width="20" height="14" rx="2"/><rect x="240" y="166" width="12" height="14" rx="2"/></g>
+              <text class="mk-lbl" x="160" y="206" style="fill:var(--accent-200)">OUTPUT · 0:30</text>
+              <!-- mode chips -->
+              <rect class="mk-chip" x="26" y="224" width="120" height="24" rx="6" /><text class="mk-lbl" x="38" y="240">Static · 2h → 30s</text>
+              <rect class="mk-chip" x="156" y="224" width="138" height="24" rx="6" /><text class="mk-lbl" x="168" y="240">Dynamic · fit length</text>
+            </svg>
+          </figure>
+        </div>
+      </div>
+
+      <!-- Feature 5 - Free + open source -->
+      <div class="feature">
+        <div class="wrap feature-inner">
+          <div class="feature-text">
+            <p class="eyebrow">Free &amp; open source</p>
+            <h3 class="feature-title">Free, private, and yours to fork</h3>
+            <p class="feature-desc">Capture runs entirely in your browser - <em>no install, no account, nothing uploaded</em>. Recordings stay on your machine. It's plain HTML, CSS, and JavaScript with no build step and no framework, released open source: read it, fork it, self-host it.</p>
+            <ul class="feature-points">
+              <li><i class="fa-solid fa-check"></i><span>Local-only - your footage never leaves the device</span></li>
+              <li><i class="fa-solid fa-check"></i><span>No sign-up, no paywall, no telemetry</span></li>
+              <li><i class="fa-solid fa-check"></i><span>Open source - clone and host it yourself</span></li>
+            </ul>
+          </div>
+          <figure class="feature-mock">
+            <svg viewBox="0 0 420 264" role="img" aria-label="Mockup of an open-source code panel with a free, local badge">
+              <rect class="mk-panel" x="26" y="34" width="368" height="196" rx="12" />
+              <!-- title bar -->
+              <line class="mk-axis" x1="26" y1="62" x2="394" y2="62" />
+              <circle cx="44" cy="48" r="4" style="fill:var(--rec)" /><circle cx="60" cy="48" r="4" style="fill:var(--warn)" /><circle cx="76" cy="48" r="4" style="fill:var(--ok)" />
+              <text class="mk-code" x="300" y="52" style="fill:var(--muted)">capture/index.html</text>
+              <!-- code lines -->
+              <text class="mk-code" x="44" y="86"><tspan class="mk-codek">const</tspan> recorder = <tspan class="mk-codek">new</tspan> Capture();</text>
+              <text class="mk-code" x="44" y="106">recorder.add(<tspan class="mk-codes">'screen'</tspan>);</text>
+              <text class="mk-code" x="44" y="126">recorder.add(<tspan class="mk-codes">'webcam'</tspan>);</text>
+              <text class="mk-code" x="44" y="146"><tspan class="mk-codek">await</tspan> recorder.start(); <tspan style="fill:var(--ok)">// local only</tspan></text>
+              <!-- badges -->
+              <rect x="44" y="176" width="74" height="34" rx="8" style="fill:var(--accent-500)" />
+              <text x="81" y="198" text-anchor="middle" style="font-family:var(--font);font-size:14px;font-weight:800;fill:#fff">Free</text>
+              <rect class="mk-chip" x="128" y="176" width="120" height="34" rx="8" />
+              <text x="148" y="198" style="font-family:var(--font);font-size:12px;font-weight:600;fill:var(--text)">Open source</text>
+              <g transform="translate(258,176)">
+                <rect class="mk-chip" width="116" height="34" rx="8" />
+                <text x="20" y="22" style="font-family:var(--font);font-size:12px;font-weight:600;fill:var(--text)">No account</text>
+              </g>
+            </svg>
+          </figure>
+        </div>
+      </div>
+
     </div>
   </section>
 
@@ -437,24 +679,6 @@
       <h2 class="section-title">No accounts. No uploads. Just open it.</h2>
       <p class="section-sub" style="margin-inline:auto;">A static site that does the whole job locally. Open the page, grant camera/screen access, and record.</p>
 
-      <div class="grid-3">
-        <div class="card">
-          <div class="ic"><i class="fa-solid fa-globe"></i></div>
-          <h3>Browser-based</h3>
-          <p>Nothing to download or install. It's a static page — open it and you're recording in seconds.</p>
-        </div>
-        <div class="card">
-          <div class="ic"><i class="fa-solid fa-lock"></i></div>
-          <h3>Local &amp; private</h3>
-          <p>Streams are captured and rendered on your device. Your recordings never leave your machine.</p>
-        </div>
-        <div class="card">
-          <div class="ic"><i class="fa-brands fa-github"></i></div>
-          <h3>Open source</h3>
-          <p>Built with plain HTML, CSS, and JavaScript — no framework, no build step. Read it, fork it, host it.</p>
-        </div>
-      </div>
-
       <div class="closing">
         <a class="btn btn-primary btn-lg" data-app><i class="fa-solid fa-circle-dot"></i>Open Recorder</a>
       </div>
@@ -465,7 +689,7 @@
   <footer class="site">
     <div class="wrap foot-inner">
       <div class="brand-lockup brand-lockup--sm">
-        <button type="button" class="brand-home" aria-label="Capture — reload page">
+        <button type="button" class="brand-home" aria-label="Capture - reload page">
           <img class="cap-banner banner--dark" src="media/imgs/Capture%20Dark%20Banner.png" alt="Capture" />
           <img class="cap-banner banner--light" src="media/imgs/Capture%20Light%20Banner.png" alt="Capture" />
         </button>
