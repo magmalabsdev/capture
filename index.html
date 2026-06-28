@@ -259,7 +259,7 @@
 
     /* ---- Self-contained ---- */
     .self { text-align:center; }
-    .closing { text-align:center; margin-top:8px; }
+    .closing { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin-top:8px; }
 
     /* ---- Footer ---- */
     footer.site {
@@ -293,7 +293,8 @@
         <a class="lnk" href="#features">Features</a>
         <a class="lnk" href="#compare">Compare</a>
         <a class="lnk" href="#" data-gh>GitHub</a>
-        <a class="btn btn-primary" data-app><i class="fa-solid fa-circle-dot"></i>Open Recorder</a>
+        <a class="lnk" data-download>Download</a>
+        <a class="btn btn-primary" data-app><i class="fa-solid fa-circle-dot"></i>Open web app</a>
       </div>
     </div>
   </nav>
@@ -309,7 +310,8 @@
     <h1 class="hero-title" id="title">Capture</h1>
     <p class="hero-hook" id="hook">Record every screen, camera, and mic at once - each as its own track.</p>
     <div class="hero-actions" id="actions">
-      <a class="btn btn-primary btn-lg" data-app><i class="fa-solid fa-circle-dot"></i>Open Recorder</a>
+      <a class="btn btn-primary btn-lg" data-app><i class="fa-solid fa-circle-dot"></i>Open web app</a>
+      <a class="btn btn-ghost btn-lg" data-download><i class="fa-solid fa-download"></i>Download app</a>
       <a class="btn btn-ghost btn-lg" data-gh><i class="fa-brands fa-github"></i>View on GitHub</a>
     </div>
   </header>
@@ -680,7 +682,8 @@
       <p class="section-sub" style="margin-inline:auto;">A static site that does the whole job locally. Open the page, grant camera/screen access, and record.</p>
 
       <div class="closing">
-        <a class="btn btn-primary btn-lg" data-app><i class="fa-solid fa-circle-dot"></i>Open Recorder</a>
+        <a class="btn btn-primary btn-lg" data-app><i class="fa-solid fa-circle-dot"></i>Open web app</a>
+        <a class="btn btn-ghost btn-lg" data-download><i class="fa-solid fa-download"></i>Download app</a>
       </div>
     </div>
   </section>
@@ -700,7 +703,8 @@
       </div>
       <div style="display:flex; gap:22px; align-items:center;">
         <a data-gh><i class="fa-brands fa-github"></i> GitHub</a>
-        <a data-app>Open Recorder</a>
+        <a data-download>Download app</a>
+        <a data-app>Open web app</a>
         <span id="year"></span>
       </div>
     </div>
@@ -710,11 +714,18 @@
     // ---- Editable constants ----
     const APP_URL = 'app/';
     const GITHUB_URL = 'https://github.com/magmalabsdev/capture';
+    // Desktop app release (download the mac/win/linux builds).
+    const DOWNLOAD_URL = 'https://github.com/magmalabsdev/capture/releases/tag/v26.06.15';
 
     // Wire up the app + GitHub links.
     for (const a of document.querySelectorAll('[data-app]')) a.setAttribute('href', APP_URL);
     for (const a of document.querySelectorAll('[data-gh]')) {
       a.setAttribute('href', GITHUB_URL);
+      a.setAttribute('target', '_blank');
+      a.setAttribute('rel', 'noopener');
+    }
+    for (const a of document.querySelectorAll('[data-download]')) {
+      a.setAttribute('href', DOWNLOAD_URL);
       a.setAttribute('target', '_blank');
       a.setAttribute('rel', 'noopener');
     }
