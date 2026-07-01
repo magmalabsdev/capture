@@ -120,6 +120,7 @@ export function createVideoStage(root) {
     wrapper.classList.toggle('is-recording', r.status === 'recording');
     wrapper.classList.toggle('is-paused', r.status === 'paused');
     wrapper.classList.toggle('is-stopped', r.status === 'stopped');
+    wrapper.classList.toggle('is-timelapse', source.timelapse?.mode !== 'off');
     wrapper.classList.toggle('is-selected', state.selectedId === source.id);
     wrapper.classList.toggle('is-main', state.speakerMainId === source.id);
     wrapper.classList.toggle('stream-ended', !!source.streamEnded);

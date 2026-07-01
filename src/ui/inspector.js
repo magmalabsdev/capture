@@ -24,6 +24,7 @@ export function statusText(source) {
   if (source.rec.errored) return 'error';
   if (source.stalled) return 'stalled';
   if (source.muted) return 'muted';
+  if (source.rec.status === 'recording' && source.timelapse?.mode !== 'off') return 'time lapse';
   return source.rec.status;
 }
 
