@@ -1,12 +1,15 @@
 // Periodic auto-export: every N seconds, download a zip of a clip from each
-// currently-recording track WITHOUT stopping the recording. Each clip is the
-// segment since the last auto-export (recorder rolls a fresh segment each time).
+// currently-recording track WITHOUT stopping the recording. Each clip covers
+// ALL footage recorded since the previous auto-export — i.e. every segment
+// finalized since the last tick (recordWatch also rolls segments every 5 min for
+// durability, so "the current segment" is NOT the whole interval). Clips are
+// non-overlapping, so concatenating them in order reproduces the full session.
 
 import { state, update, notify } from './state.js';
 import { rollSegment } from './recorder.js';
 import { makeZip } from './util/zip.js';
 import { safeName } from './util/format.js';
-import { audioToMp3OrOriginal, exportableVideo } from './export/exporters.js';
+import { audioToMp3OrOriginal, exportableVideo, getRecordingBlobSince } from './export/exporters.js';
 import { saveFile } from './download.js';
 
 let timer = null;
@@ -67,16 +70,41 @@ async function runTick() {
       return name;
     };
 
+    let partialAny = false;
     for (const src of recording) {
-      const clip = await rollSegment(src);
-      if (!clip || !clip.blob.size) continue;
+      // Finalize the live segment (its data is now complete + durable) and keep
+      // recording a fresh one; `rolled.seg` is the just-finalized segment number.
+      const rolled = await rollSegment(src);
+      if (!rolled) continue; // not recording / already rolling — catch it next tick
+
+      const sinceSeg = src._periodicSeg || 0;
+      // Prefer the rolled in-memory blob for its own segment (avoids the async IDB
+      // tail race); older un-exported segments come from durable storage. Cap at
+      // rolled.seg so the still-active new segment isn't half-exported.
+      const override = rolled.blob && rolled.blob.size
+        ? new Map([[rolled.seg, [rolled.blob]]])
+        : undefined;
+
+      let res;
+      try {
+        res = await getRecordingBlobSince(src, sinceSeg, { override, maxSeg: rolled.seg });
+      } catch (e) {
+        // Couldn't read this track's new footage — skip it (keep the watermark so
+        // it's retried next tick) rather than failing the whole auto-export.
+        notify(`Auto-export skipped ${src.label}: ${e.message || e}`, 'warn');
+        continue;
+      }
+      if (!res || !res.blob.size) continue;
+      partialAny = partialAny || res.partial;
+
       if (src.mediaKind === 'audio') {
-        const a = await audioToMp3OrOriginal(clip.blob, clip.ext);
+        const a = await audioToMp3OrOriginal(res.blob, res.ext);
         files.push({ name: nameFor(src.label, a.ext), blob: a.blob });
       } else {
-        const v = await exportableVideo({ blob: clip.blob, ext: clip.ext });
+        const v = await exportableVideo({ blob: res.blob, ext: res.ext });
         files.push({ name: nameFor(src.label, v.ext), blob: v.blob });
       }
+      src._periodicSeg = res.uptoSeg; // advance only after a successful read
     }
 
     if (files.length) {
@@ -88,7 +116,10 @@ async function runTick() {
         s.periodic.count = idx;
         s.periodic.lastRunAt = Date.now();
       });
-      notify(`Auto-exported clip ${idx} (${files.length} track${files.length === 1 ? '' : 's'}).`, 'info');
+      notify(
+        `Auto-exported clip ${idx} (${files.length} track${files.length === 1 ? '' : 's'})${partialAny ? ' — some footage was unreadable and skipped' : ''}.`,
+        partialAny ? 'warn' : 'info'
+      );
     }
   } catch (e) {
     notify(`Auto-export failed: ${e.message || e}`, 'error');

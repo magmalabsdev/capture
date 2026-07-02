@@ -186,6 +186,7 @@ export async function startRecording(source) {
   source._seg = 0;
   source._memSegments = [];
   source._idbFailed = false;
+  source._periodicSeg = 0; // high-water mark of segments already auto-exported
   if (idbAvailable()) {
     try {
       await deleteRecording(source.id);
@@ -215,7 +216,7 @@ export function continueRecording(source) {
 /**
  * Finalize the current segment into a playable clip and immediately continue
  * recording a new segment on the same live stream (periodic export + auto-roll).
- * Resolves { blob, ext } for the just-finalized clip, or null if not recording.
+ * Resolves { blob, ext, seg } for the just-finalized clip, or null if not recording.
  */
 export function rollSegment(source) {
   return new Promise((resolve) => {
@@ -239,7 +240,7 @@ export function rollSegment(source) {
       beginSegment(source, newBase); // keep recording, preserving cumulative time
       source._rolling = false;
       update();
-      resolve(blob && blob.size ? { blob, ext } : null);
+      resolve(blob && blob.size ? { blob, ext, seg } : null);
     };
     try {
       mr.stop();

@@ -10,7 +10,21 @@ import { getSegmentsBlobs, idbAvailable, deleteRecording } from '../util/idb.js'
 import { getFFmpeg, runExec } from './ffmpeg.js';
 import { saveFile } from '../download.js';
 
-const blobBytes = async (blob) => new Uint8Array(await blob.arrayBuffer());
+// Read a blob's bytes, retrying once on NotReadableError. Large in-memory blobs
+// are disk-backed and the OS can transiently evict the temp file (the classic
+// cause of "could not read" on long external-device recordings); a short retry
+// recovers from that without failing the export.
+const blobBytes = async (blob) => {
+  try {
+    return new Uint8Array(await blob.arrayBuffer());
+  } catch (e) {
+    if (e && e.name === 'NotReadableError') {
+      await new Promise((r) => setTimeout(r, 150));
+      return new Uint8Array(await blob.arrayBuffer());
+    }
+    throw e;
+  }
+};
 
 export const hasRecording = (s) => !!(s.rec && s.rec.hasData);
 
@@ -28,8 +42,13 @@ const TIMELAPSE_FPS = 30;
 /* Reassembly from durable storage                                    */
 /* ------------------------------------------------------------------ */
 
-/** Merge IDB segments + in-memory fallback + the live active segment by seg #. */
-async function assembleSegments(source) {
+/**
+ * Merge IDB segments + in-memory fallback + the live active segment into a
+ * seg# -> Blob[] map. `override` (seg# -> Blob[]) wins over every source — used
+ * to inject a just-rolled segment whose final chunk may not have been flushed to
+ * IDB yet (the async addChunk tail race).
+ */
+async function assembleSegments(source, override) {
   const map = new Map(); // seg -> Blob[]
   let partial = false;
 
@@ -49,21 +68,34 @@ async function assembleSegments(source) {
   if (source.rec.status === 'recording' && source._chunks && source._chunks.length) {
     map.set(source._seg, source._chunks.slice());
   }
+  if (override) for (const [seg, blobs] of override) map.set(seg, blobs);
 
-  const segs = [...map.keys()].sort((a, b) => a - b).map((k) => map.get(k));
-  return { segs, partial };
+  return { map, partial };
 }
 
-/** Concatenate per-segment blobs into one file (stream copy, lossless). */
+/**
+ * Concatenate per-segment blobs into one file (stream copy, lossless). A segment
+ * whose bytes can't be read is skipped (and flagged partial) rather than failing
+ * the whole track — mirroring the per-chunk skip in getSegmentsBlobs. Throws only
+ * if every segment is unreadable.
+ * @returns {Promise<{ blob: Blob, partial: boolean }>}
+ */
 async function concatSegments(segBlobs, ext, onProgress) {
   const ff = await getFFmpeg(onProgress);
   const job = `c${jobSeq++}`;
   const names = [];
+  let skipped = 0;
   for (let i = 0; i < segBlobs.length; i += 1) {
     const n = `${job}_${i}.${ext}`;
-    await ff.writeFile(n, await blobBytes(segBlobs[i]));
-    names.push(n);
+    try {
+      await ff.writeFile(n, await blobBytes(segBlobs[i]));
+      names.push(n);
+    } catch {
+      skipped += 1; // unreadable segment — drop it, keep the rest of the take
+    }
   }
+  if (!names.length) throw new Error('no readable footage');
+
   const listName = `${job}_list.txt`;
   await ff.writeFile(listName, new TextEncoder().encode(names.map((n) => `file '${n}'`).join('\n')));
   const out = `${job}_out.${ext}`;
@@ -80,7 +112,36 @@ async function concatSegments(segBlobs, ext, onProgress) {
       }
     }
   }
-  return new Blob([data], { type: segBlobs[0].type || '' });
+  return { blob: new Blob([data], { type: segBlobs[0].type || '' }), partial: skipped > 0 };
+}
+
+/**
+ * Reassemble the segments of a recording with seg# in (sinceSeg, maxSeg] into one
+ * Blob. `sinceSeg` lets periodic auto-export grab only footage recorded since the
+ * previous tick; `maxSeg` excludes the still-active (unfinalized) segment so the
+ * high-water mark never advances past a segment that's still being written.
+ * @returns {Promise<{ blob: Blob, ext: string, uptoSeg: number, partial: boolean } | null>}
+ */
+export async function getRecordingBlobSince(source, sinceSeg = 0, opts = {}) {
+  const { onProgress, override, maxSeg = Infinity } = opts;
+  const mime = source.rec.mimeType || '';
+  const ext = source.rec.ext || extFromMime(mime);
+  const { map, partial } = await assembleSegments(source, override);
+
+  const segNums = [...map.keys()]
+    .filter((k) => k > sinceSeg && k <= maxSeg)
+    .sort((a, b) => a - b);
+  if (!segNums.length) return null;
+  const uptoSeg = segNums[segNums.length - 1];
+
+  const segBlobs = segNums
+    .map((k) => new Blob(map.get(k), { type: mime }))
+    .filter((b) => b.size > 0);
+  if (!segBlobs.length) return null;
+  if (segBlobs.length === 1) return { blob: segBlobs[0], ext, uptoSeg, partial };
+
+  const { blob, partial: concatPartial } = await concatSegments(segBlobs, ext, onProgress);
+  return { blob, ext, uptoSeg, partial: partial || concatPartial };
 }
 
 /**
@@ -88,16 +149,9 @@ async function concatSegments(segBlobs, ext, onProgress) {
  * @returns {Promise<{ blob: Blob, ext: string, partial: boolean } | null>}
  */
 export async function getRecordingBlob(source, onProgress) {
-  const mime = source.rec.mimeType || '';
-  const ext = source.rec.ext || extFromMime(mime);
-  const { segs, partial } = await assembleSegments(source);
-
-  const segBlobs = segs.map((blobs) => new Blob(blobs, { type: mime })).filter((b) => b.size > 0);
-  if (!segBlobs.length) return null;
-  if (segBlobs.length === 1) return { blob: segBlobs[0], ext, partial };
-
-  const blob = await concatSegments(segBlobs, ext, onProgress);
-  return { blob, ext, partial };
+  const res = await getRecordingBlobSince(source, 0, { onProgress });
+  if (!res) return null;
+  return { blob: res.blob, ext: res.ext, partial: res.partial };
 }
 
 /** Resolve a recording; throws a clear error if nothing is readable. */
